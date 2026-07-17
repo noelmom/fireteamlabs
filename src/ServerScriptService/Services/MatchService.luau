@@ -18,11 +18,13 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local MatchLogic = require(ReplicatedStorage.Shared.Utility.MatchLogic)
+local TeamAssignment = require(ReplicatedStorage.Shared.Utility.TeamAssignment)
 local RemoteNames = require(ReplicatedStorage.Remotes.RemoteNames)
 local RemoteUtil = require(ReplicatedStorage.Shared.Utility.RemoteUtil)
 
 local MapService = require(ServerScriptService.Services.MapService)
 local PlayerStateService = require(ServerScriptService.Services.PlayerStateService)
+local TeamService = require(ServerScriptService.Services.TeamService)
 
 local Match = GameConfig.Match
 
@@ -39,6 +41,7 @@ type State = {
 	RoundResult: RoundResult?,
 	MatchWinner: TeamId?,
 	WinTarget: number,
+	TeamSize: number, -- players per team this match (0 while waiting)
 }
 
 local MatchService = {
@@ -55,6 +58,7 @@ local state: State = {
 	RoundResult = nil,
 	MatchWinner = nil,
 	WinTarget = Match.RoundWinTarget,
+	TeamSize = 0,
 }
 
 local matchGeneration = 0
@@ -80,6 +84,7 @@ local function replicate()
 		RoundResult = state.RoundResult,
 		MatchWinner = state.MatchWinner,
 		WinTarget = state.WinTarget,
+		TeamSize = state.TeamSize,
 	})
 end
 
@@ -99,19 +104,15 @@ local function waitPhase(seconds: number, generation: number): boolean
 	return matchGeneration == generation
 end
 
-local function connectedTeamCount(team: TeamId): number
-	local count = 0
-	for _, player in Players:GetPlayers() do
-		if MapService:GetTeam(player) == team then
-			count += 1
-		end
+-- The team size to start at right now (1v1 or 3v3), or nil if not enough
+-- balanced players yet (issue #3).
+local function selectedTeamSize(): number?
+	local alpha, bravo = TeamService:CountByTeam()
+	local size = TeamAssignment.selectTeamSize(alpha + bravo, GameConfig.Playlists.TeamSizes)
+	if size and alpha >= size and bravo >= size then
+		return size
 	end
-	return count
-end
-
-local function canStartMatch(): boolean
-	local min = Match.MinPlayersPerTeamToStart
-	return connectedTeamCount("Alpha") >= min and connectedTeamCount("Bravo") >= min
+	return nil
 end
 
 local function rosterAliveCount(team: TeamId): number
@@ -119,7 +120,7 @@ local function rosterAliveCount(team: TeamId): number
 	for _, player in roster do
 		if
 			player:IsDescendantOf(Players)
-			and MapService:GetTeam(player) == team
+			and TeamService:GetTeam(player) == team
 			and PlayerStateService:IsAlive(player)
 		then
 			count += 1
@@ -131,7 +132,7 @@ end
 local function rosterConnectedCount(team: TeamId): number
 	local count = 0
 	for _, player in roster do
-		if player:IsDescendantOf(Players) and MapService:GetTeam(player) == team then
+		if player:IsDescendantOf(Players) and TeamService:GetTeam(player) == team then
 			count += 1
 		end
 	end
@@ -258,18 +259,24 @@ local function runRound(generation: number): RoundResult?
 	return result
 end
 
-local function runMatch()
+local function runMatch(teamSize: number)
 	matchGeneration += 1
 	local generation = matchGeneration
 
+	-- Roster: the first `teamSize` connected players on each team.
 	roster = {}
+	local picked = { Alpha = 0, Bravo = 0 }
 	for _, player in Players:GetPlayers() do
-		MapService:EnsureTeam(player)
-		table.insert(roster, player)
+		local team = TeamService:EnsureTeam(player)
+		if picked[team] < teamSize then
+			table.insert(roster, player)
+			picked[team] += 1
+		end
 	end
 
 	state.MatchId = HttpService:GenerateGUID(false)
 	state.Phase = "InProgress"
+	state.TeamSize = teamSize
 	state.Scores = { Alpha = 0, Bravo = 0 }
 	state.RoundNumber = 0
 	state.MatchWinner = nil
@@ -277,7 +284,7 @@ local function runMatch()
 	replicate()
 
 	while matchGeneration == generation do
-		-- A team with no connected players can't contest a round; abort.
+		-- A team with no connected players can't contest a round.
 		if rosterConnectedCount("Alpha") == 0 or rosterConnectedCount("Bravo") == 0 then
 			break
 		end
@@ -294,17 +301,36 @@ local function runMatch()
 		end
 	end
 
-	if matchGeneration == generation and state.MatchWinner then
+	-- Forfeit: a team with no connected players left loses; the other team
+	-- takes the match (issue #3). Computed from live counts so it's decided the
+	-- same whether the drop interrupted a phase or ended a round.
+	if not state.MatchWinner then
+		local alpha = rosterConnectedCount("Alpha")
+		local bravo = rosterConnectedCount("Bravo")
+		if alpha == 0 and bravo > 0 then
+			state.MatchWinner = "Bravo"
+		elseif bravo == 0 and alpha > 0 then
+			state.MatchWinner = "Alpha"
+		end
+	end
+
+	if state.MatchWinner then
 		state.Phase = "PostMatch"
 		state.RoundPhase = "PostRound"
 		state.PhaseEndTime = serverNow() + Match.PostRoundSeconds * 2
 		replicate()
-		waitPhase(Match.PostRoundSeconds * 2, generation)
+		-- Not generation-guarded: a forfeit bumps the generation, but this
+		-- match's result still deserves its post-match display.
+		task.wait(Match.PostRoundSeconds * 2)
 	end
 end
 
 local function enterWaitingForPlayers()
+	-- Even out teams before the next match forms (issue #3).
+	TeamService:Rebalance()
+
 	state.Phase = "WaitingForPlayers"
+	state.TeamSize = 0
 	state.RoundNumber = 0
 	state.RoundPhase = "PreRound"
 	state.Scores = { Alpha = 0, Bravo = 0 }
@@ -349,19 +375,20 @@ function MatchService.Start(_self: any)
 		if state.Phase ~= "InProgress" then
 			return
 		end
-		local team = MapService:GetTeam(player)
+		local team = TeamService:GetTeam(player)
 		if not team then
 			return
 		end
-		-- If this drop empties a team, the match can't continue.
+		-- If this drop empties a rostered team, interrupt the current phase so
+		-- the match ends promptly (forfeit is decided in runMatch).
 		local remaining = 0
 		for _, other in roster do
-			if other ~= player and other:IsDescendantOf(Players) and MapService:GetTeam(other) == team then
+			if other ~= player and other:IsDescendantOf(Players) and TeamService:GetTeam(other) == team then
 				remaining += 1
 			end
 		end
 		if remaining == 0 then
-			matchGeneration += 1 -- abort back to WaitingForPlayers
+			matchGeneration += 1
 		end
 	end)
 
@@ -369,7 +396,8 @@ function MatchService.Start(_self: any)
 	task.spawn(function()
 		while true do
 			enterWaitingForPlayers()
-			while not canStartMatch() do
+			local size = selectedTeamSize()
+			while not size do
 				-- Spawn any player still without a character (joiners).
 				for _, player in Players:GetPlayers() do
 					if not player.Character then
@@ -377,8 +405,16 @@ function MatchService.Start(_self: any)
 					end
 				end
 				task.wait(0.5)
+				size = selectedTeamSize()
 			end
-			runMatch()
+
+			-- Let a burst of joiners settle, then start at the largest fit.
+			task.wait(Match.MatchStartGraceSeconds)
+			TeamService:Rebalance()
+			size = selectedTeamSize()
+			if size then
+				runMatch(size)
+			end
 		end
 	end)
 end

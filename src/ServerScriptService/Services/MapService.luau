@@ -1,13 +1,15 @@
 --!strict
--- Builds the active map, owns team membership, and places characters at team
--- spawns (issue #11). MatchService decides *when* players spawn (round flow,
--- issue #2); MapService decides *where* (which team spawn), and supports
--- per-round side rotation. Join-order team assignment is a stopgap until #3.
+-- Builds the active map and places characters at team spawns (issue #11).
+-- Team *membership* is owned by TeamService (#3); MapService decides *where*
+-- each team spawns and supports per-round side rotation (#2). MatchService
+-- decides *when* players spawn.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local CryoFoundry = require(ReplicatedStorage.Maps.CryoFoundry)
+local TeamService = require(ServerScriptService.Services.TeamService)
 
 type TeamId = "Alpha" | "Bravo"
 
@@ -16,24 +18,14 @@ local MapService = {
 }
 
 local map: Model
-local teamOf: { [Player]: TeamId } = {}
-local assignCounter = 0
 local spawnCounter = 0
 
 -- Maps a logical team to the physical spawn group it uses this round.
 -- MatchService updates this each round for side rotation.
 local sideOfTeam: { [TeamId]: TeamId } = { Alpha = "Alpha", Bravo = "Bravo" }
 
-local function assignTeam(player: Player): TeamId
-	-- TODO(#3): replace join-order alternation with real team assignment.
-	local team: TeamId = if assignCounter % 2 == 0 then "Alpha" else "Bravo"
-	assignCounter += 1
-	teamOf[player] = team
-	return team
-end
-
 local function placeAtSpawn(player: Player, character: Model)
-	local team = teamOf[player] or assignTeam(player)
+	local team = TeamService:EnsureTeam(player)
 	local side = sideOfTeam[team]
 	local spawns = CryoFoundry.getSpawns(map, side)
 	if #spawns == 0 then
@@ -50,15 +42,6 @@ end
 
 function MapService.GetMap(_self: any): Model
 	return map
-end
-
-function MapService.GetTeam(_self: any, player: Player): TeamId?
-	return teamOf[player]
-end
-
--- Assigns a team if the player has none yet; always returns the current team.
-function MapService.EnsureTeam(_self: any, player: Player): TeamId
-	return teamOf[player] or assignTeam(player)
 end
 
 -- Sets the physical spawn side each logical team uses (side rotation, #2).
@@ -82,7 +65,6 @@ function MapService.Init(_self: any)
 end
 
 local function onPlayerAdded(player: Player)
-	assignTeam(player)
 	player.CharacterAdded:Connect(function(character)
 		placeAtSpawn(player, character)
 	end)
@@ -93,10 +75,6 @@ function MapService.Start(_self: any)
 		onPlayerAdded(player)
 	end
 	Players.PlayerAdded:Connect(onPlayerAdded)
-
-	Players.PlayerRemoving:Connect(function(player)
-		teamOf[player] = nil
-	end)
 end
 
 return MapService
