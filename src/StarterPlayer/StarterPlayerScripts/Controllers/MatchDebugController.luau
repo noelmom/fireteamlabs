@@ -19,6 +19,7 @@ type MatchState = {
 	RoundResult: string?,
 	MatchWinner: string?,
 	WinTarget: number,
+	TeamSize: number,
 }
 
 local MatchDebugController = {
@@ -107,7 +108,9 @@ local function render()
 	if state.Phase == "WaitingForPlayers" then
 		scoreLabel.Text = "Waiting for players…"
 	else
-		scoreLabel.Text = `ALPHA  {state.Scores.Alpha}  —  {state.Scores.Bravo}  BRAVO   (first to {state.WinTarget})`
+		local mode = `{state.TeamSize}v{state.TeamSize}`
+		scoreLabel.Text =
+			`ALPHA  {state.Scores.Alpha}  —  {state.Scores.Bravo}  BRAVO   ({mode}, first to {state.WinTarget})`
 	end
 
 	local status = phaseLabel(state)

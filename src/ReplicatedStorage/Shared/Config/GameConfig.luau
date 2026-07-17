@@ -12,11 +12,13 @@ local GameConfig = {
 		RespawnsDuringRound = false,
 		TeamSideRotation = true,
 
-		-- Interim match-start gate for #2. Real per-playlist sizing lands in #3.
-		MinPlayersPerTeamToStart = 1,
 		-- Seconds to wait for all rostered players to have a live character
 		-- before a round's elimination checks begin.
 		RoundReadyTimeoutSeconds = 5,
+		-- Once enough players are present, wait this long for more to settle so a
+		-- burst of joiners forms the largest match they can fill (e.g. 3v3), then
+		-- start (issue #3).
+		MatchStartGraceSeconds = 3,
 
 		Overtime = {
 			-- Activates when the round timer expires with both teams alive.
