@@ -75,12 +75,13 @@ local function tryFire()
 		return
 	end
 	fireRequest:FireServer(camera.CFrame.Position, camera.CFrame.LookVector, aiming)
-	WeaponController.ShotFired:Fire()
+	WeaponController.ShotFired:Fire(currentWeaponId)
 end
 
 function WeaponController.Start(_self: any)
 	fireRequest = RemoteUtil.getEvent(RemoteNames.FireWeaponRequest)
 	reloadRequest = RemoteUtil.getEvent(RemoteNames.ReloadRequest)
+	local equipRequest = RemoteUtil.getEvent(RemoteNames.EquipSlotRequest)
 	local weaponStateChanged = RemoteUtil.getEvent(RemoteNames.WeaponStateChanged)
 	local combatFeedback = RemoteUtil.getEvent(RemoteNames.CombatFeedback)
 	local matchStateChanged = RemoteUtil.getEvent(RemoteNames.MatchStateChanged)
@@ -92,6 +93,17 @@ function WeaponController.Start(_self: any)
 	InputController:BindAction("Fire", function(began)
 		firing = began
 	end)
+
+	local function bindSlot(action: string, slot: string)
+		InputController:BindAction(action, function(began)
+			if began then
+				equipRequest:FireServer(slot)
+			end
+		end)
+	end
+	bindSlot("SlotPrimary", "Primary")
+	bindSlot("SlotSpecial", "Special")
+	bindSlot("SlotHeavy", "Heavy")
 
 	InputController:BindAction("Aim", function(began)
 		aiming = began

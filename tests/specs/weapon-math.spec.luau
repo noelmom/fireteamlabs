@@ -36,6 +36,13 @@ return {
 		assertNear(WeaponMath.fireIntervalSeconds(40), 1.5, "40 rpm")
 	end,
 
+	["splash damage falls off linearly to the blast radius"] = function()
+		assertNear(WeaponMath.splashDamage(110, 30, 14, 0), 110, "center")
+		assertNear(WeaponMath.splashDamage(110, 30, 14, 7), 70, "midpoint")
+		assertNear(WeaponMath.splashDamage(110, 30, 14, 14), 30, "min damage at the edge")
+		assertNear(WeaponMath.splashDamage(110, 30, 14, 20), 0, "beyond radius")
+	end,
+
 	["spread stacks movement and airborne penalties"] = function()
 		local spread = { HipBase = 1.4, AdsBase = 0.35, MovingAdd = 0.9, AirborneAdd = 2.2 }
 		assertNear(WeaponMath.spreadDegrees(spread, false, false, false), 1.4, "hip standing")

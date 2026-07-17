@@ -59,25 +59,66 @@ local function block(size: Vector3, offset: CFrame, color: Color3, parent: Model
 	return p
 end
 
-local function buildRifle(): Model
-	local rifle = Instance.new("Model")
-	rifle.Name = "ViewmodelRifle"
+type PartSpec = { Size: Vector3, Offset: CFrame, Color: Color3, Neon: boolean? }
+type WeaponBuild = { Parts: { PartSpec }, Muzzle: CFrame }
+
+-- Procedural per-weapon shapes (issue #8). Muzzle is where the flash sits.
+local WEAPON_BUILDS: { [string]: WeaponBuild } = {
+	AutoRifle = {
+		Parts = {
+			{ Size = Vector3.new(0.32, 0.42, 1.6), Offset = CFrame.new(0, 0, 0), Color = MID },
+			{ Size = Vector3.new(0.28, 0.34, 0.55), Offset = CFrame.new(0, -0.02, 1.0), Color = DARK },
+			{ Size = Vector3.new(0.14, 0.14, 1.1), Offset = CFrame.new(0, 0.06, -1.3), Color = DARK },
+			{
+				Size = Vector3.new(0.22, 0.55, 0.34),
+				Offset = CFrame.new(0, -0.42, 0.25) * CFrame.Angles(math.rad(8), 0, 0),
+				Color = DARK,
+			},
+			{ Size = Vector3.new(0.06, 0.14, 0.06), Offset = CFrame.new(0, 0.31, -0.55), Color = ACCENT, Neon = true },
+		},
+		Muzzle = CFrame.new(0, 0.06, -1.95),
+	},
+	Shotgun = {
+		Parts = {
+			{ Size = Vector3.new(0.36, 0.46, 1.3), Offset = CFrame.new(0, 0, 0), Color = MID },
+			{ Size = Vector3.new(0.3, 0.36, 0.5), Offset = CFrame.new(0, -0.02, 0.9), Color = DARK },
+			{ Size = Vector3.new(0.22, 0.24, 1.2), Offset = CFrame.new(0, 0.06, -1.05), Color = DARK },
+			{ Size = Vector3.new(0.26, 0.2, 0.42), Offset = CFrame.new(0, -0.2, -0.6), Color = ACCENT, Neon = true },
+			{
+				Size = Vector3.new(0.2, 0.5, 0.32),
+				Offset = CFrame.new(0, -0.4, 0.2) * CFrame.Angles(math.rad(8), 0, 0),
+				Color = DARK,
+			},
+		},
+		Muzzle = CFrame.new(0, 0.06, -1.7),
+	},
+	RocketLauncher = {
+		Parts = {
+			{ Size = Vector3.new(0.5, 0.5, 2.3), Offset = CFrame.new(0, 0, -0.2), Color = MID },
+			{ Size = Vector3.new(0.56, 0.56, 0.35), Offset = CFrame.new(0, 0, 1.0), Color = DARK },
+			{ Size = Vector3.new(0.18, 0.5, 0.32), Offset = CFrame.new(0, -0.44, 0.25), Color = DARK },
+			{ Size = Vector3.new(0.08, 0.18, 0.08), Offset = CFrame.new(0, 0.36, -0.3), Color = ACCENT, Neon = true },
+		},
+		Muzzle = CFrame.new(0, 0, -1.5),
+	},
+}
+
+local function buildViewmodel(weaponId: string): Model
+	local build = WEAPON_BUILDS[weaponId] or WEAPON_BUILDS.AutoRifle
+	local viewmodel = Instance.new("Model")
+	viewmodel.Name = "Viewmodel"
 	partOffsets = {}
 
-	-- Receiver, stock, barrel, magazine, sight post.
-	block(Vector3.new(0.32, 0.42, 1.6), CFrame.new(0, 0, 0), MID, rifle)
-	block(Vector3.new(0.28, 0.34, 0.55), CFrame.new(0, -0.02, 1.0), DARK, rifle)
-	block(Vector3.new(0.14, 0.14, 1.1), CFrame.new(0, 0.06, -1.3), DARK, rifle)
-	block(Vector3.new(0.22, 0.55, 0.34), CFrame.new(0, -0.42, 0.25) * CFrame.Angles(math.rad(8), 0, 0), DARK, rifle)
-	block(Vector3.new(0.06, 0.14, 0.06), CFrame.new(0, 0.31, -0.55), ACCENT, rifle, true)
+	for _, spec in build.Parts do
+		block(spec.Size, spec.Offset, spec.Color, viewmodel, spec.Neon)
+	end
 
-	local flash =
-		block(Vector3.new(0.3, 0.3, 0.35), CFrame.new(0, 0.06, -1.95), Color3.fromRGB(255, 190, 90), rifle, true)
+	local flash = block(Vector3.new(0.3, 0.3, 0.35), build.Muzzle, Color3.fromRGB(255, 190, 90), viewmodel, true)
 	flash.Transparency = 1
 	flash.Shape = Enum.PartType.Ball
 	muzzleFlash = flash
 
-	return rifle
+	return viewmodel
 end
 
 local function targetPose(): CFrame
@@ -133,7 +174,8 @@ local function onRenderStep(deltaSeconds: number)
 end
 
 function ViewmodelController.Start(_self: any)
-	model = buildRifle()
+	local currentWeaponId = "AutoRifle"
+	model = buildViewmodel(currentWeaponId)
 
 	WeaponController.ShotFired:Connect(function()
 		recoil = math.min(recoil + RECOIL_KICK, 2.5)
@@ -152,6 +194,13 @@ function ViewmodelController.Start(_self: any)
 
 	WeaponController.StateUpdated:Connect(function(state: WeaponController.WeaponState)
 		reloading = state.Reloading
+		if state.WeaponId ~= currentWeaponId then
+			currentWeaponId = state.WeaponId
+			if model then
+				model:Destroy()
+			end
+			model = buildViewmodel(currentWeaponId)
+		end
 	end)
 
 	MovementController.SprintChanged:Connect(function(value: boolean)

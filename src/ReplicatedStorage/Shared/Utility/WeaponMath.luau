@@ -30,6 +30,16 @@ function WeaponMath.damage(
 	return damage
 end
 
+-- Explosion splash damage: maxDamage at the center, falling linearly to
+-- minDamage at the blast radius edge, and 0 beyond it (issue #8).
+function WeaponMath.splashDamage(maxDamage: number, minDamage: number, radius: number, distance: number): number
+	if distance > radius then
+		return 0
+	end
+	local t = distance / radius
+	return maxDamage + (minDamage - maxDamage) * t
+end
+
 function WeaponMath.fireIntervalSeconds(roundsPerMinute: number): number
 	assert(roundsPerMinute > 0, "roundsPerMinute must be positive")
 	return 60 / roundsPerMinute
