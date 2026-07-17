@@ -13,12 +13,8 @@ local CombatConfig = {
 		ClassAbility = 1.0,
 	},
 
-	Knife = {
-		Damage = 70,
-		RangeStuds = 6,
-		SwingDelaySeconds = 0.5,
-		MissRecoverySeconds = 0.7,
-	},
+	-- Knife weapon stats live in WeaponConfig.Knife (#9); its shield category is
+	-- ShieldMultipliers.Knife above.
 }
 
 return CombatConfig

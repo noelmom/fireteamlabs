@@ -101,6 +101,14 @@ local WEAPON_BUILDS: { [string]: WeaponBuild } = {
 		},
 		Muzzle = CFrame.new(0, 0, -1.5),
 	},
+	Knife = {
+		Parts = {
+			{ Size = Vector3.new(0.12, 0.12, 0.5), Offset = CFrame.new(0, 0, 0.3), Color = DARK },
+			{ Size = Vector3.new(0.26, 0.06, 0.08), Offset = CFrame.new(0, 0, 0.05), Color = MID },
+			{ Size = Vector3.new(0.05, 0.16, 0.72), Offset = CFrame.new(0, 0.02, -0.42), Color = ACCENT, Neon = true },
+		},
+		Muzzle = CFrame.new(0, 0, -0.85),
+	},
 }
 
 local function buildViewmodel(weaponId: string): Model

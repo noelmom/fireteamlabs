@@ -46,6 +46,24 @@ local function tryFire()
 		-- Trigger does nothing during the pre-round countdown / post-round.
 		return
 	end
+
+	local weapon = WeaponConfig[currentWeaponId]
+
+	-- Melee: no ammo or reload; the server enforces reach and recovery (#9).
+	if weapon.Type == "Melee" then
+		local now = os.clock()
+		if now - lastShotClock < weapon.SwingDelaySeconds then
+			return
+		end
+		lastShotClock = now
+		local camera = workspace.CurrentCamera
+		if camera then
+			fireRequest:FireServer(camera.CFrame.Position, camera.CFrame.LookVector, false)
+			WeaponController.ShotFired:Fire(currentWeaponId)
+		end
+		return
+	end
+
 	if lastState and lastState.Reloading then
 		return
 	end
@@ -62,7 +80,6 @@ local function tryFire()
 		return
 	end
 
-	local weapon = WeaponConfig[currentWeaponId]
 	local interval = WeaponMath.fireIntervalSeconds(weapon.RoundsPerMinute)
 	local now = os.clock()
 	if now - lastShotClock < interval then
@@ -104,6 +121,7 @@ function WeaponController.Start(_self: any)
 	bindSlot("SlotPrimary", "Primary")
 	bindSlot("SlotSpecial", "Special")
 	bindSlot("SlotHeavy", "Heavy")
+	bindSlot("SlotKnife", "Knife")
 
 	InputController:BindAction("Aim", function(began)
 		aiming = began
