@@ -20,6 +20,8 @@ type MatchState = {
 	MatchWinner: string?,
 	WinTarget: number,
 	TeamSize: number,
+	CaptureTeam: string?,
+	CaptureProgress: number,
 }
 
 local MatchDebugController = {
@@ -86,7 +88,11 @@ local function phaseLabel(state: MatchState): string
 	elseif state.RoundPhase == "Active" then
 		return "ROUND LIVE"
 	elseif state.RoundPhase == "Overtime" then
-		return "OVERTIME"
+		local pct = math.floor((state.CaptureProgress or 0) * 100)
+		if state.CaptureTeam then
+			return `OVERTIME — {string.upper(state.CaptureTeam)} CAPTURING {pct}%`
+		end
+		return "OVERTIME — CONTEST THE ZONE"
 	elseif state.RoundPhase == "PostRound" then
 		local r = state.RoundResult
 		if r == "Draw" then

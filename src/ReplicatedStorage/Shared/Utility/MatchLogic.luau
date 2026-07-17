@@ -70,6 +70,43 @@ function MatchLogic.isCombatLive(phase: string, roundPhase: string): boolean
 	return roundPhase == "Active" or roundPhase == "Overtime"
 end
 
+-- Advances overtime zone capture by one step (issue #4). With exactly one team
+-- alone in the zone, its progress accumulates; a different sole team resets
+-- progress and takes over; contested (both present) or empty (neither) pauses
+-- progress. Returns the owning team, the new progress, and the winning team
+-- once progress reaches captureSeconds.
+function MatchLogic.stepCapture(
+	owner: TeamId?,
+	progress: number,
+	alphaInZone: number,
+	bravoInZone: number,
+	deltaSeconds: number,
+	captureSeconds: number
+): (TeamId?, number, TeamId?)
+	local sole: TeamId? = nil
+	if alphaInZone > 0 and bravoInZone == 0 then
+		sole = "Alpha"
+	elseif bravoInZone > 0 and alphaInZone == 0 then
+		sole = "Bravo"
+	end
+
+	if sole == nil then
+		-- Contested or empty: hold progress and owner.
+		return owner, progress, nil
+	end
+
+	local newOwner = owner
+	local newProgress = progress
+	if owner ~= sole then
+		newOwner = sole
+		newProgress = 0
+	end
+	newProgress += deltaSeconds
+
+	local winner: TeamId? = if newProgress >= captureSeconds then sole else nil
+	return newOwner, newProgress, winner
+end
+
 -- Which physical spawn side a team uses for a given round. With rotation on,
 -- sides swap every round (round 1 = home, round 2 = swapped, ...).
 function MatchLogic.sideForTeam(team: TeamId, roundNumber: number, rotationEnabled: boolean): TeamId
