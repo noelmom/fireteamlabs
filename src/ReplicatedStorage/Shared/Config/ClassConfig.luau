@@ -10,6 +10,7 @@ local ClassConfig = {
 		Specter = {
 			DisplayName = "Specter",
 			Role = "Agile skirmisher",
+			Summary = "Throw a charged blade — heavy damage, more on a headshot.",
 			Ability = {
 				Name = "Flechette",
 				-- Charged mono-edge throwing blade: physical projectile with travel time.
@@ -23,6 +24,7 @@ local ClassConfig = {
 		Conduit = {
 			DisplayName = "Conduit",
 			Role = "Energy specialist",
+			Summary = "Fire a plasma bolt that hits hard and burns over time.",
 			Ability = {
 				Name = "Surge Bolt",
 				-- Charged superheated plasma bolt: short-to-medium range projectile.
@@ -37,6 +39,7 @@ local ClassConfig = {
 		Bulwark = {
 			DisplayName = "Bulwark",
 			Role = "Heavy breacher",
+			Summary = "Charge forward and slam — walls stop the ram.",
 			Ability = {
 				Name = "Kinetic Ram",
 				-- Charged forward slam: server-validated lunge that cannot pass through walls.
