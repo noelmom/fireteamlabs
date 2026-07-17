@@ -645,7 +645,7 @@ release/<version>
 Examples:
 
 ```text
-feature/42-hunter-throwing-knife
+feature/42-specter-flechette
 content/76-cryo-foundry-graybox
 art/81-cryo-foundry-ice-materials
 feature/104-cosmetic-inventory
@@ -1218,9 +1218,9 @@ Future grenade skins must not change gameplay.
 
 Initial classes:
 
-* Hunter.
-* Warlock.
-* Titan.
+* Specter — agile skirmisher.
+* Conduit — energy specialist.
+* Bulwark — heavy breacher.
 
 All classes have identical:
 
@@ -1239,7 +1239,9 @@ Suggested cooldown:
 
 * 25 seconds.
 
-## Hunter — Throwing Knife
+## Specter — Flechette
+
+A charged mono-edge throwing blade.
 
 * Physical projectile.
 * Travel time.
@@ -1248,7 +1250,9 @@ Suggested cooldown:
 * Suggested body damage: 80.
 * Suggested precision damage: 120.
 
-## Warlock — Fire Bolt
+## Conduit — Surge Bolt
+
+A charged superheated plasma bolt.
 
 * Short-to-medium projectile.
 * Direct damage.
@@ -1256,7 +1260,9 @@ Suggested cooldown:
 * Suggested direct damage: 70.
 * Suggested burn: four ticks of five damage.
 
-## Titan — Forward Strike
+## Bulwark — Kinetic Ram
+
+A charged forward slam.
 
 * Forward lunge.
 * Approximately 12 studs.
@@ -2882,3 +2888,38 @@ The progression architecture must not wait for final cosmetic designs.
 Use placeholder reward IDs and clearly labeled temporary assets so the full system can be implemented, tested, balanced, and documented before the final rewards are available.
 
 Seasonal reward production should proceed through separate GitHub Issues after the item-definition and reward-track contracts are stable.
+
+---
+
+# VERTICAL SLICE AMENDMENT
+
+Decisions recorded 2026-07-17. This amendment overrides earlier sections where they conflict.
+
+## Milestone 0 — Vertical Slice
+
+Before any other milestone, build a playable vertical slice containing only:
+
+* One complete map (one Island X sector).
+* 1v1 and 3v3 casual matches.
+* One primary weapon, one special weapon, one heavy weapon, and the knife.
+* Movement, gunplay, health and shields, and the full round loop with win conditions and overtime.
+* The three classes with their charged melee abilities.
+
+Explicitly deferred past the vertical slice:
+
+* 5v5 (a configuration change once 3v3 works).
+* Ranked playlists and ELO.
+* Store, purchases, currency, and all cosmetics.
+* Emotes and communication emojis.
+* Seasonal progression.
+* Additional maps and weapons.
+
+The vertical slice must still follow the server-authoritative architecture, configuration modules, and issue-driven workflow defined in this document, so deferred systems can be added without rework.
+
+## Island X Framing
+
+Fireteam Labs is an arena shooter. Island X is the persistent world fiction: every arena map is a named sector of Island X, and map selection presents the island. A battle-royale mode on the full island is a possible far-future direction and must not influence current match structure, ammo economy, or map design. The existing battle-royale-flavored concept art is directional mood reference only.
+
+## Class Identity
+
+The classes are Specter (Flechette), Conduit (Surge Bolt), and Bulwark (Kinetic Ram), as defined in Section 15. Earlier working names referencing other games' classes are retired and must not appear in code, assets, issues, or player-facing text.
