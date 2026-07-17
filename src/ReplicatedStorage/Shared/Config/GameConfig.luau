@@ -39,6 +39,13 @@ local GameConfig = {
 
 		-- Experimental; must stay disabled for the vertical slice.
 		SlideEnabled = false,
+
+		Validation = {
+			-- Server-side speed enforcement (issue #6).
+			CheckIntervalSeconds = 0.5,
+			ToleranceMultiplier = 1.35, -- headroom for physics jitter and jumps
+			ViolationLimit = 3, -- consecutive violations before correction
+		},
 	},
 
 	Playlists = {
