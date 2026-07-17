@@ -57,10 +57,11 @@ default sky with a blank one until the real ids are filled in.
 
 ## Notes and known limitations
 
-- Stylized/first-pass quality. The source panorama is 3:2 rather than a true
-  2:1 equirectangular, so the horizon has slight waviness at the face seams —
-  acceptable for a distant backdrop, improvable by regenerating a cleaner 2:1
-  source.
+- Current source is a true **2:1 equirectangular** (v2) with the horizon on the
+  equator, so the side faces have a clean, level, continuous horizon. The v1
+  source (3:2, wavy horizon) is archived at
+  `earlyartwork/archived/cryo-foundry-skybox-v1/`.
+- Stylized quality — fine as a distant backdrop; not a photoreal HDRI.
 - If faces look mirrored or rotated in Studio, the face orientation convention
   in `skybox_convert.py` needs a per-face flip — tell me what's off and it's a
   one-line change plus a reconvert.
