@@ -2923,3 +2923,39 @@ Fireteam Labs is an arena shooter. Island X is the persistent world fiction: eve
 ## Class Identity
 
 The classes are Specter (Flechette), Conduit (Surge Bolt), and Bulwark (Kinetic Ram), as defined in Section 15. Earlier working names referencing other games' classes are retired and must not appear in code, assets, issues, or player-facing text.
+
+---
+
+# VISUAL DIRECTION AMENDMENT
+
+Recorded 2026-07-17. This amendment overrides earlier sections where the *visual/technical-art*
+direction conflicts. **Gameplay and design are unchanged.**
+
+Fireteam Labs is now a **grounded, high-fidelity tactical science-fiction arena FPS** — realistic
+tactical equipment, plausible near-future weapons, industrial research facilities, restrained
+sci-fi tech, authored lighting and PBR materials, and a real first-person viewmodel. The prior
+stylized/Destiny-inspired presentation is retired. Perceived-quality benchmark: modern Roblox
+tactical shooters (reference only; no assets/UI/weapons/maps/audio copied from any game).
+
+**Preserved (do not rewrite stable gameplay because visuals changed):** the Fireteam Labs title;
+Island X; competitive arena FPS from 1v1 through 5v5; Specter, Conduit, Bulwark as competitive
+**cosmetic** identities with **identical** health, shields, movement, hitboxes, weapon access, and
+grenade counts (Bulwark's heavier look must stay inside the shared hitbox); progression, seasonal,
+ranked, unranked, private, and custom-match plans; the first map based on the competitive structure
+of fy_iceworld — now realized as an original **realistic Island X cold research facility**, not a
+visual remake.
+
+**Replaced (visual only):** stylized procedural viewmodel → real first-person arm+weapon meshes and
+animation; block-geometry map → modular PBR facility (keeping the spawn/marker/overtime contract);
+placeholder audio → designed audio; neon/"magical" ability effects → restrained engineered effects;
+flat Roblox materials → a `SurfaceAppearance` PBR material library.
+
+**Process:** audit first; preserve working systems; produce and get approval on the vertical-slice
+plan before mass asset production; return whole files when editing. See `docs/ART_DIRECTION.md`,
+`docs/TECHNICAL_ART_PIPELINE.md`, `docs/VERTICAL_SLICE_PLAN.md`, and (next) `GRAPHICS_QUALITY_TIERS.md`,
+`PERFORMANCE_BUDGETS.md`, `FIRST_PERSON_VIEWMODEL.md`, `MAP_01_ICEWORLD_FACILITY.md`.
+
+**3D pipeline (validated):** codex authors Blender `bpy` modeling scripts → run headless here →
+glTF export + Cycles preview → you import to Studio for asset ids. Strong for hard-surface (weapons,
+props, modular kit — proven); organic anatomy uses a sourced **CC0 base mesh** (Blender Studio Human
+Base Meshes) for the viewmodel arms.
