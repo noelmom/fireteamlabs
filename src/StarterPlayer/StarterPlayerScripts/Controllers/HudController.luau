@@ -300,7 +300,11 @@ end
 
 local function updateAmmo(state: WeaponState)
 	weaponName.Text = string.upper(state.WeaponId)
-	if state.Reloading then
+	if state.Magazine < 0 then
+		-- Melee (unlimited): no magazine/reserve.
+		ammoMag.Text = "∞"
+		ammoReserve.Text = ""
+	elseif state.Reloading then
 		ammoMag.Text = "···"
 		ammoReserve.Text = "RELOAD"
 	else

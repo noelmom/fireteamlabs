@@ -28,6 +28,7 @@ local AudioConfig: { [string]: { [string]: SoundDef } } = {
 			SpeedJitter = 0.04,
 		},
 		RocketLauncher = { SoundId = "rbxasset://sounds/bass.wav", Volume = 0.75, PlaybackSpeed = 0.9 },
+		Knife = { SoundId = "rbxasset://sounds/unsheath.wav", Volume = 0.5, PlaybackSpeed = 1.1, SpeedJitter = 0.08 },
 	},
 	WeaponRemoteFire = {
 		AutoRifle = {

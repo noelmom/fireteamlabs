@@ -28,15 +28,17 @@ local SLOT_WEAPONS: { [string]: string } = {
 	Primary = "AutoRifle",
 	Special = "Shotgun",
 	Heavy = "RocketLauncher",
+	Knife = "Knife",
 }
-local SLOT_ORDER = { "Primary", "Special", "Heavy" }
+local SLOT_ORDER = { "Primary", "Special", "Heavy", "Knife" }
 
 type SlotState = {
 	WeaponId: string,
-	Magazine: number,
+	Magazine: number, -- -1 means unlimited (melee)
 	Reserve: number,
 	LastFireClock: number,
 	Reloading: boolean,
+	NextReadyClock: number, -- melee: earliest time the next swing is allowed
 }
 
 type Loadout = {
@@ -110,13 +112,16 @@ local function resetLoadout(player: Player)
 	local previous = loadouts[player]
 	local slots: { [string]: SlotState } = {}
 	for _, slotId in SLOT_ORDER do
-		local weapon: any = WeaponConfig[SLOT_WEAPONS[slotId]]
+		local weaponId = SLOT_WEAPONS[slotId]
+		local weapon: any = WeaponConfig[weaponId]
+		local isMelee = weapon.Type == "Melee"
 		slots[slotId] = {
-			WeaponId = SLOT_WEAPONS[slotId],
-			Magazine = weapon.MagazineSize,
-			Reserve = weapon.ReserveAmmo,
+			WeaponId = weaponId,
+			Magazine = if isMelee then -1 else weapon.MagazineSize,
+			Reserve = if isMelee then -1 else weapon.ReserveAmmo,
 			LastFireClock = 0,
 			Reloading = false,
+			NextReadyClock = 0,
 		}
 	end
 	loadouts[player] = {
@@ -301,6 +306,41 @@ local function updateProjectiles(deltaSeconds: number)
 	end
 end
 
+-- Melee swing (issue #9): server-validated forward reach; a hit swings on the
+-- base cadence, a whiff adds the recovery delay. No ammo, no reload.
+local function doMelee(
+	player: Player,
+	character: Model,
+	head: BasePart,
+	origin: Vector3,
+	direction: Vector3,
+	weapon: any,
+	slot: SlotState
+)
+	local now = os.clock()
+	if now < slot.NextReadyClock then
+		return
+	end
+	weaponFiredBroadcast:FireAllClients({ UserId = player.UserId, Position = head.Position, WeaponId = slot.WeaponId })
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character, projectileFolder }
+	local result = workspace:Raycast(origin, direction * weapon.RangeStuds, params)
+
+	local feedback = newFeedback()
+	if result then
+		local victim = victimFromResult(result, player)
+		if victim then
+			applyHit(player, victim, weapon.Damage, false, weapon.Slot, feedback)
+		end
+	end
+
+	local recovery = if feedback.Hit then 0 else weapon.MissRecoverySeconds
+	slot.NextReadyClock = now + weapon.SwingDelaySeconds + recovery
+	combatFeedback:FireClient(player, feedback)
+end
+
 local function onFireRequest(player: Player, origin: unknown, direction: unknown, isAds: unknown)
 	local slot, weapon = activeState(player)
 	if not slot or slot.Reloading then
@@ -325,6 +365,11 @@ local function onFireRequest(player: Player, origin: unknown, direction: unknown
 		return
 	end
 	if (originVector - head.Position).Magnitude > MAX_ORIGIN_OFFSET_STUDS then
+		return
+	end
+
+	if weapon.Type == "Melee" then
+		doMelee(player, character, head, originVector, directionVector.Unit, weapon, slot)
 		return
 	end
 
@@ -381,6 +426,9 @@ local function onReloadRequest(player: Player)
 	local slot, weapon = activeState(player)
 	if not slot or slot.Reloading or not PlayerStateService:IsAlive(player) then
 		return
+	end
+	if weapon.Type == "Melee" then
+		return -- no reload for the knife
 	end
 	if slot.Magazine >= weapon.MagazineSize or slot.Reserve <= 0 then
 		return

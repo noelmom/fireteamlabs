@@ -73,6 +73,17 @@ local WeaponConfig = {
 		MaxRangeStuds = 500,
 	},
 
+	Knife = {
+		Slot = "Knife" :: WeaponSlot,
+		Type = "Melee",
+		DisplayName = "Knife",
+		-- Unlimited use; no magazine. Server validates range and swing timing (#9).
+		Damage = 70,
+		RangeStuds = 6,
+		SwingDelaySeconds = 0.5, -- base cadence between swings
+		MissRecoverySeconds = 0.7, -- extra delay added after a whiff
+	},
+
 	-- Deferred archetypes (do not implement before their issues open):
 	-- BurstRifle, HandCannon (Primary); SniperRifle, ChargedEnergyRifle (Special);
 	-- HeavyMachineGun (Heavy).
