@@ -92,6 +92,11 @@ local function onFireRequest(player: Player, origin: unknown, direction: unknown
 	if not PlayerStateService:IsAlive(player) then
 		return
 	end
+	if not PlayerStateService:IsCombatEnabled() then
+		-- No firing during the pre-round countdown / post-round: skip ammo,
+		-- raycast, and the shot broadcast entirely (issue #28).
+		return
+	end
 
 	-- Payload sanity: reject anything malformed instead of erroring.
 	if typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then

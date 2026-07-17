@@ -66,6 +66,10 @@ local function serverNow(): number
 end
 
 local function replicate()
+	-- Keep the authoritative combat gate in lockstep with what clients see, so
+	-- damage is impossible before a round goes live (issue #28).
+	PlayerStateService:SetCombatEnabled(MatchLogic.isCombatLive(state.Phase, state.RoundPhase))
+
 	matchStateChanged:FireAllClients({
 		MatchId = state.MatchId,
 		Phase = state.Phase,

@@ -42,6 +42,11 @@ local PlayerStateService = {
 local states: { [Player]: PlayerState } = {}
 local playerStateChanged: RemoteEvent
 
+-- Master combat gate (issue #28). MatchService drives this from match state so
+-- no damage lands during the pre-round countdown, post-round, or post-match.
+-- Defaults true so free-roam / solo testing deals damage before any match runs.
+local combatEnabled = true
+
 local function replicate(player: Player)
 	local state = states[player]
 	if not state then
@@ -93,6 +98,15 @@ function PlayerStateService.IsAlive(_self: any, player: Player): boolean
 	return state ~= nil and state.Alive
 end
 
+-- Set by MatchService each time match state changes.
+function PlayerStateService.SetCombatEnabled(_self: any, enabled: boolean)
+	combatEnabled = enabled
+end
+
+function PlayerStateService.IsCombatEnabled(_self: any): boolean
+	return combatEnabled
+end
+
 -- Applies category-multiplied, shield-before-health damage. Returns nil if
 -- the victim has no state or is already eliminated.
 function PlayerStateService.ApplyDamage(
@@ -104,6 +118,11 @@ function PlayerStateService.ApplyDamage(
 ): DamageResult?
 	local state = states[victim]
 	if not state or not state.Alive or amount <= 0 then
+		return nil
+	end
+	if not combatEnabled then
+		-- Combat gated off (pre-round, post-round, post-match). Covers every
+		-- damage source since they all route through here (issue #28).
 		return nil
 	end
 

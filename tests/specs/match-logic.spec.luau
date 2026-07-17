@@ -56,6 +56,15 @@ return {
 		assertEq(MatchLogic.isMatchPoint({ Alpha = 5, Bravo = 5 }, 7), false, "not match point")
 	end,
 
+	["combat is live only during free-roam and the live round"] = function()
+		assertEq(MatchLogic.isCombatLive("WaitingForPlayers", "PreRound"), true, "free roam")
+		assertEq(MatchLogic.isCombatLive("InProgress", "Active"), true, "active")
+		assertEq(MatchLogic.isCombatLive("InProgress", "Overtime"), true, "overtime")
+		assertEq(MatchLogic.isCombatLive("InProgress", "PreRound"), false, "pre-round countdown")
+		assertEq(MatchLogic.isCombatLive("InProgress", "PostRound"), false, "post-round")
+		assertEq(MatchLogic.isCombatLive("PostMatch", "PostRound"), false, "post-match")
+	end,
+
 	["side rotation swaps on even rounds when enabled"] = function()
 		assertEq(MatchLogic.sideForTeam("Alpha", 1, true), "Alpha", "round 1 home")
 		assertEq(MatchLogic.sideForTeam("Alpha", 2, true), "Bravo", "round 2 swapped")

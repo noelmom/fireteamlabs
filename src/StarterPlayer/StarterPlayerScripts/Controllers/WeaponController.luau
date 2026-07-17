@@ -9,6 +9,7 @@ local RunService = game:GetService("RunService")
 
 local WeaponConfig = require(ReplicatedStorage.Shared.Config.WeaponConfig)
 local WeaponMath = require(ReplicatedStorage.Shared.Utility.WeaponMath)
+local MatchLogic = require(ReplicatedStorage.Shared.Utility.MatchLogic)
 local RemoteNames = require(ReplicatedStorage.Remotes.RemoteNames)
 local RemoteUtil = require(ReplicatedStorage.Shared.Utility.RemoteUtil)
 local Signal = require(ReplicatedStorage.Shared.Utility.Signal)
@@ -32,6 +33,8 @@ local aiming = false
 local lastShotClock = 0
 local currentWeaponId = "AutoRifle"
 local lastState: WeaponState? = nil
+-- Default true so solo / pre-match play fires; match state flips it (issue #28).
+local combatLive = true
 local lastAutoReloadClock = 0
 local fireRequest: RemoteEvent
 local reloadRequest: RemoteEvent
@@ -82,6 +85,10 @@ end
 
 local function tryFire()
 	-- Predictive gate only; the server independently enforces all of this.
+	if not combatLive then
+		-- Trigger does nothing during the pre-round countdown / post-round.
+		return
+	end
 	if lastState and lastState.Reloading then
 		return
 	end
@@ -135,6 +142,11 @@ function WeaponController.Start(_self: any)
 	reloadRequest = RemoteUtil.getEvent(RemoteNames.ReloadRequest)
 	local weaponStateChanged = RemoteUtil.getEvent(RemoteNames.WeaponStateChanged)
 	local combatFeedback = RemoteUtil.getEvent(RemoteNames.CombatFeedback)
+	local matchStateChanged = RemoteUtil.getEvent(RemoteNames.MatchStateChanged)
+
+	matchStateChanged.OnClientEvent:Connect(function(matchState: { Phase: string, RoundPhase: string })
+		combatLive = MatchLogic.isCombatLive(matchState.Phase, matchState.RoundPhase)
+	end)
 
 	InputController:BindAction("Fire", function(began)
 		firing = began
