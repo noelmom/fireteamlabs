@@ -57,6 +57,19 @@ function MatchLogic.isMatchPoint(scores: Scores, target: number): boolean
 	return scores.Alpha == target - 1 or scores.Bravo == target - 1
 end
 
+-- Whether damage/combat is live for the given match + round phase. Combat is
+-- on during free-roam (no match) and during the live round (Active/Overtime),
+-- and off during the pre-round countdown, post-round, and post-match. Server
+-- and client share this one rule so the gate can never drift (issue #28).
+function MatchLogic.isCombatLive(phase: string, roundPhase: string): boolean
+	if phase == "WaitingForPlayers" then
+		return true
+	elseif phase ~= "InProgress" then
+		return false
+	end
+	return roundPhase == "Active" or roundPhase == "Overtime"
+end
+
 -- Which physical spawn side a team uses for a given round. With rotation on,
 -- sides swap every round (round 1 = home, round 2 = swapped, ...).
 function MatchLogic.sideForTeam(team: TeamId, roundNumber: number, rotationEnabled: boolean): TeamId
