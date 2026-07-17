@@ -288,6 +288,10 @@ local function onSetClass(player: Player, classId: unknown)
 	if not state or typeof(classId) ~= "string" or not ClassConfig.Classes[classId] then
 		return
 	end
+	-- Class locks once the round is live; changes only during prep phases (#38).
+	if PlayerStateService:IsCombatEnabled() then
+		return
+	end
 	state.ClassId = classId
 	replicate(player)
 end
