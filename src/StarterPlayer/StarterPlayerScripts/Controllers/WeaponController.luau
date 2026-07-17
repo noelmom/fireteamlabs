@@ -11,17 +11,25 @@ local WeaponConfig = require(ReplicatedStorage.Shared.Config.WeaponConfig)
 local WeaponMath = require(ReplicatedStorage.Shared.Utility.WeaponMath)
 local RemoteNames = require(ReplicatedStorage.Remotes.RemoteNames)
 local RemoteUtil = require(ReplicatedStorage.Shared.Utility.RemoteUtil)
+local Signal = require(ReplicatedStorage.Shared.Utility.Signal)
 local CameraController = require(script.Parent.CameraController)
 local InputController = require(script.Parent.InputController)
 
+export type WeaponState = { WeaponId: string, Magazine: number, Reserve: number, Reloading: boolean }
+
 local WeaponController = {
 	Name = "WeaponController",
+	-- Client-side events for presentation layers (viewmodel, HUD).
+	ShotFired = Signal.new(),
+	AimChanged = Signal.new(), -- (aiming: boolean)
+	StateUpdated = Signal.new(), -- (state: WeaponState)
 }
 
 local firing = false
 local aiming = false
 local lastShotClock = 0
 local currentWeaponId = "AutoRifle"
+local lastState: WeaponState? = nil
 
 local ammoLabel: TextLabel
 local hitmarker: TextLabel
@@ -68,6 +76,11 @@ local function buildDebugHud()
 end
 
 local function tryFire(fireRequest: RemoteEvent)
+	-- Predictive gate only; the server independently enforces all of this.
+	if lastState and (lastState.Reloading or lastState.Magazine <= 0) then
+		return
+	end
+
 	local weapon = WeaponConfig[currentWeaponId]
 	local interval = WeaponMath.fireIntervalSeconds(weapon.RoundsPerMinute)
 	local now = os.clock()
@@ -81,6 +94,7 @@ local function tryFire(fireRequest: RemoteEvent)
 		return
 	end
 	fireRequest:FireServer(camera.CFrame.Position, camera.CFrame.LookVector, aiming)
+	WeaponController.ShotFired:Fire()
 end
 
 local function flashHitmarker(feedback: { Precision: boolean?, Eliminated: boolean? })
@@ -113,6 +127,7 @@ function WeaponController.Start(_self: any)
 		aiming = began
 		local weapon = WeaponConfig[currentWeaponId]
 		CameraController:SetAdsFov(if began then weapon.AdsFov else nil)
+		WeaponController.AimChanged:Fire(began)
 	end)
 
 	InputController:BindAction("Reload", function(began)
@@ -121,12 +136,12 @@ function WeaponController.Start(_self: any)
 		end
 	end)
 
-	weaponStateChanged.OnClientEvent:Connect(
-		function(state: { WeaponId: string, Magazine: number, Reserve: number, Reloading: boolean })
-			currentWeaponId = state.WeaponId
-			ammoLabel.Text = if state.Reloading then "RELOADING…" else `{state.Magazine} / {state.Reserve}`
-		end
-	)
+	weaponStateChanged.OnClientEvent:Connect(function(state: WeaponState)
+		currentWeaponId = state.WeaponId
+		lastState = state
+		ammoLabel.Text = if state.Reloading then "RELOADING…" else `{state.Magazine} / {state.Reserve}`
+		WeaponController.StateUpdated:Fire(state)
+	end)
 
 	combatFeedback.OnClientEvent:Connect(function(feedback: { Hit: boolean, Precision: boolean, Eliminated: boolean })
 		if feedback.Hit then
@@ -144,6 +159,7 @@ function WeaponController.Start(_self: any)
 		firing = false
 		aiming = false
 		CameraController:SetAdsFov(nil)
+		WeaponController.AimChanged:Fire(false)
 	end)
 end
 

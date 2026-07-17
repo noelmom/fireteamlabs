@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Signal = require(ReplicatedStorage.Shared.Utility.Signal)
 local CameraController = require(script.Parent.CameraController)
 local InputController = require(script.Parent.InputController)
 
@@ -14,6 +15,7 @@ local Movement = GameConfig.Movement
 
 local MovementController = {
 	Name = "MovementController",
+	SprintChanged = Signal.new(), -- (sprinting: boolean), false while crouched
 }
 
 local sprinting = false
@@ -36,7 +38,9 @@ local function apply()
 	if humanoid then
 		humanoid.WalkSpeed = currentSpeed()
 	end
-	CameraController:SetSprinting(sprinting and not crouching)
+	local effectiveSprint = sprinting and not crouching
+	CameraController:SetSprinting(effectiveSprint)
+	MovementController.SprintChanged:Fire(effectiveSprint)
 end
 
 function MovementController.Start(_self: any)
