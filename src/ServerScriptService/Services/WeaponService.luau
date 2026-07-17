@@ -36,6 +36,7 @@ local states: { [Player]: WeaponState } = {}
 
 local weaponStateChanged: RemoteEvent
 local combatFeedback: RemoteEvent
+local weaponFiredBroadcast: RemoteEvent
 
 local function replicate(player: Player)
 	local state = states[player]
@@ -123,6 +124,9 @@ local function onFireRequest(player: Player, origin: unknown, direction: unknown
 	state.LastFireClock = now
 	state.Magazine -= 1
 
+	-- Positional audio on other clients (issue #23).
+	weaponFiredBroadcast:FireAllClients({ UserId = player.UserId, Position = head.Position })
+
 	local isMoving = humanoid.MoveDirection.Magnitude > 0.1
 	local isAirborne = humanoid.FloorMaterial == Enum.Material.Air
 	local spread = WeaponMath.spreadDegrees(weapon.SpreadDegrees, isAds == true, isMoving, isAirborne)
@@ -205,6 +209,7 @@ end
 function WeaponService.Init(_self: any)
 	weaponStateChanged = RemoteUtil.getEvent(RemoteNames.WeaponStateChanged)
 	combatFeedback = RemoteUtil.getEvent(RemoteNames.CombatFeedback)
+	weaponFiredBroadcast = RemoteUtil.getEvent(RemoteNames.WeaponFiredBroadcast)
 	local fireRequest = RemoteUtil.getEvent(RemoteNames.FireWeaponRequest)
 	local reloadRequest = RemoteUtil.getEvent(RemoteNames.ReloadRequest)
 

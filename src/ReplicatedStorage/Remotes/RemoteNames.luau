@@ -16,6 +16,7 @@ local RemoteNames = {
 	MatchStateChanged = "MatchStateChanged",
 	PlayerStateChanged = "PlayerStateChanged",
 	WeaponStateChanged = "WeaponStateChanged",
+	WeaponFiredBroadcast = "WeaponFiredBroadcast",
 	CombatFeedback = "CombatFeedback",
 }
 

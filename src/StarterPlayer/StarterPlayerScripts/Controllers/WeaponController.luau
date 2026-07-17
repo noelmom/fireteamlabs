@@ -19,10 +19,12 @@ export type WeaponState = { WeaponId: string, Magazine: number, Reserve: number,
 
 local WeaponController = {
 	Name = "WeaponController",
-	-- Client-side events for presentation layers (viewmodel, HUD).
+	-- Client-side events for presentation layers (viewmodel, HUD, audio).
 	ShotFired = Signal.new(),
 	AimChanged = Signal.new(), -- (aiming: boolean)
 	StateUpdated = Signal.new(), -- (state: WeaponState)
+	HitConfirmed = Signal.new(), -- (feedback: { Hit, Precision, ShieldBroken, Eliminated })
+	EmptyTriggered = Signal.new(), -- fired when attempting to shoot an empty magazine
 }
 
 local firing = false
@@ -30,6 +32,9 @@ local aiming = false
 local lastShotClock = 0
 local currentWeaponId = "AutoRifle"
 local lastState: WeaponState? = nil
+local lastAutoReloadClock = 0
+local fireRequest: RemoteEvent
+local reloadRequest: RemoteEvent
 
 local ammoLabel: TextLabel
 local hitmarker: TextLabel
@@ -75,9 +80,21 @@ local function buildDebugHud()
 	gui.Parent = playerGui
 end
 
-local function tryFire(fireRequest: RemoteEvent)
+local function tryFire()
 	-- Predictive gate only; the server independently enforces all of this.
-	if lastState and (lastState.Reloading or lastState.Magazine <= 0) then
+	if lastState and lastState.Reloading then
+		return
+	end
+	if lastState and lastState.Magazine <= 0 then
+		-- Auto-reload on empty trigger (issue #22), throttled against spam.
+		local now = os.clock()
+		if now - lastAutoReloadClock >= 0.5 then
+			lastAutoReloadClock = now
+			WeaponController.EmptyTriggered:Fire()
+			if lastState.Reserve > 0 then
+				reloadRequest:FireServer()
+			end
+		end
 		return
 	end
 
@@ -114,8 +131,8 @@ end
 function WeaponController.Start(_self: any)
 	buildDebugHud()
 
-	local fireRequest = RemoteUtil.getEvent(RemoteNames.FireWeaponRequest)
-	local reloadRequest = RemoteUtil.getEvent(RemoteNames.ReloadRequest)
+	fireRequest = RemoteUtil.getEvent(RemoteNames.FireWeaponRequest)
+	reloadRequest = RemoteUtil.getEvent(RemoteNames.ReloadRequest)
 	local weaponStateChanged = RemoteUtil.getEvent(RemoteNames.WeaponStateChanged)
 	local combatFeedback = RemoteUtil.getEvent(RemoteNames.CombatFeedback)
 
@@ -146,12 +163,13 @@ function WeaponController.Start(_self: any)
 	combatFeedback.OnClientEvent:Connect(function(feedback: { Hit: boolean, Precision: boolean, Eliminated: boolean })
 		if feedback.Hit then
 			flashHitmarker(feedback)
+			WeaponController.HitConfirmed:Fire(feedback)
 		end
 	end)
 
 	RunService.Heartbeat:Connect(function()
 		if firing then
-			tryFire(fireRequest)
+			tryFire()
 		end
 	end)
 
