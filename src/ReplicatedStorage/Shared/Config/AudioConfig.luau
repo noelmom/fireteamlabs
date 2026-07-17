@@ -12,6 +12,45 @@ export type SoundDef = {
 }
 
 local AudioConfig: { [string]: { [string]: SoundDef } } = {
+	-- Per-weapon fire sounds (issue #8). Looked up by WeaponId, falling back to
+	-- Weapon.Fire / Weapon.RemoteFire.
+	WeaponFire = {
+		AutoRifle = {
+			SoundId = "rbxasset://sounds/paintball.wav",
+			Volume = 0.6,
+			PlaybackSpeed = 0.72,
+			SpeedJitter = 0.06,
+		},
+		Shotgun = {
+			SoundId = "rbxasset://sounds/paintball.wav",
+			Volume = 0.8,
+			PlaybackSpeed = 0.42,
+			SpeedJitter = 0.04,
+		},
+		RocketLauncher = { SoundId = "rbxasset://sounds/bass.wav", Volume = 0.75, PlaybackSpeed = 0.9 },
+	},
+	WeaponRemoteFire = {
+		AutoRifle = {
+			SoundId = "rbxasset://sounds/paintball.wav",
+			Volume = 0.5,
+			PlaybackSpeed = 0.7,
+			SpeedJitter = 0.05,
+			RollOffMaxDistance = 250,
+		},
+		Shotgun = {
+			SoundId = "rbxasset://sounds/paintball.wav",
+			Volume = 0.7,
+			PlaybackSpeed = 0.42,
+			RollOffMaxDistance = 260,
+		},
+		RocketLauncher = {
+			SoundId = "rbxasset://sounds/bass.wav",
+			Volume = 0.7,
+			PlaybackSpeed = 0.85,
+			RollOffMaxDistance = 320,
+		},
+	},
+
 	Weapon = {
 		Fire = {
 			SoundId = "rbxasset://sounds/paintball.wav",

@@ -1,11 +1,14 @@
 --!strict
--- Server-authoritative firing pipeline (issue #7, MASTERPLAN.md sections 11
--- and 20). Clients request shots with their camera origin/direction; the
--- server enforces fire rate, ammo, origin sanity, applies spread, raycasts,
--- and deals damage through PlayerStateService.
+-- Server-authoritative firing pipeline (issues #7, #8; MASTERPLAN.md sections
+-- 11 and 20). Each player carries a loadout of weapons in slots and switches
+-- between them; the server enforces fire rate, ammo, origin sanity, applies
+-- spread, and resolves damage through PlayerStateService. Firing dispatches by
+-- weapon Type: Hitscan (single ray), Shotgun (many pellets), Projectile (a
+-- server-simulated rocket with splash).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local WeaponConfig = require(ReplicatedStorage.Shared.Config.WeaponConfig)
@@ -19,47 +22,106 @@ local PlayerStateService = require(ServerScriptService.Services.PlayerStateServi
 local FIRE_INTERVAL_TOLERANCE = 0.92
 local MAX_ORIGIN_OFFSET_STUDS = 8
 
-type WeaponState = {
+-- Default loadout: which weapon fills each slot (issue #8). Knife slot lands
+-- with #9.
+local SLOT_WEAPONS: { [string]: string } = {
+	Primary = "AutoRifle",
+	Special = "Shotgun",
+	Heavy = "RocketLauncher",
+}
+local SLOT_ORDER = { "Primary", "Special", "Heavy" }
+
+type SlotState = {
 	WeaponId: string,
 	Magazine: number,
 	Reserve: number,
 	LastFireClock: number,
 	Reloading: boolean,
+}
+
+type Loadout = {
+	Slots: { [string]: SlotState },
+	ActiveSlot: string,
 	Generation: number, -- invalidates pending reloads across respawns
+}
+
+type Feedback = {
+	Hit: boolean,
+	Precision: boolean,
+	ShieldBroken: boolean,
+	Eliminated: boolean,
+}
+
+type Projectile = {
+	Owner: Player,
+	Character: Model,
+	Weapon: any,
+	Position: Vector3,
+	Velocity: Vector3,
+	Life: number,
+	Part: BasePart,
 }
 
 local WeaponService = {
 	Name = "WeaponService",
 }
 
-local states: { [Player]: WeaponState } = {}
+local loadouts: { [Player]: Loadout } = {}
+local projectiles: { Projectile } = {}
+local projectileFolder: Folder
+local random = Random.new()
 
 local weaponStateChanged: RemoteEvent
 local combatFeedback: RemoteEvent
 local weaponFiredBroadcast: RemoteEvent
 
+local function newFeedback(): Feedback
+	return { Hit = false, Precision = false, ShieldBroken = false, Eliminated = false }
+end
+
+local function activeState(player: Player): (SlotState?, any)
+	local loadout = loadouts[player]
+	if not loadout then
+		return nil, nil
+	end
+	local slot = loadout.Slots[loadout.ActiveSlot]
+	if not slot then
+		return nil, nil
+	end
+	return slot, WeaponConfig[slot.WeaponId]
+end
+
 local function replicate(player: Player)
-	local state = states[player]
-	if not state then
+	local slot = activeState(player)
+	if not slot then
 		return
 	end
+	local loadout = loadouts[player]
 	weaponStateChanged:FireClient(player, {
-		WeaponId = state.WeaponId,
-		Magazine = state.Magazine,
-		Reserve = state.Reserve,
-		Reloading = state.Reloading,
+		WeaponId = slot.WeaponId,
+		Slot = loadout.ActiveSlot,
+		Magazine = slot.Magazine,
+		Reserve = slot.Reserve,
+		Reloading = slot.Reloading,
 	})
 end
 
 local function resetLoadout(player: Player)
-	local previous = states[player]
-	local weapon = WeaponConfig.AutoRifle
-	states[player] = {
-		WeaponId = "AutoRifle",
-		Magazine = weapon.MagazineSize,
-		Reserve = weapon.ReserveAmmo,
-		LastFireClock = 0,
-		Reloading = false,
+	local previous = loadouts[player]
+	local slots: { [string]: SlotState } = {}
+	for _, slotId in SLOT_ORDER do
+		local weapon: any = WeaponConfig[SLOT_WEAPONS[slotId]]
+		slots[slotId] = {
+			WeaponId = SLOT_WEAPONS[slotId],
+			Magazine = weapon.MagazineSize,
+			Reserve = weapon.ReserveAmmo,
+			LastFireClock = 0,
+			Reloading = false,
+		}
+	end
+	loadouts[player] = {
+		Slots = slots,
+		ActiveSlot = "Primary",
 		Generation = (previous and previous.Generation or 0) + 1,
 	}
 	replicate(player)
@@ -75,26 +137,176 @@ local function characterParts(player: Player): (Model?, BasePart?, Humanoid?)
 	return character, head, humanoid
 end
 
-local function applySpread(direction: Vector3, degrees: number, random: Random): Vector3
+local function applySpread(direction: Vector3, degrees: number): Vector3
 	local radians = math.rad(degrees)
 	local cframe = CFrame.lookAlong(Vector3.zero, direction)
 		* CFrame.Angles(random:NextNumber(-radians, radians), random:NextNumber(-radians, radians), 0)
 	return cframe.LookVector
 end
 
-local random = Random.new()
+local function victimFromResult(result: RaycastResult, shooter: Player): (Player?, boolean)
+	local model = result.Instance:FindFirstAncestorOfClass("Model")
+	local victim = model and Players:GetPlayerFromCharacter(model)
+	if victim and victim ~= shooter then
+		return victim, result.Instance.Name == "Head"
+	end
+	return nil, false
+end
+
+local function applyHit(
+	shooter: Player,
+	victim: Player,
+	damage: number,
+	isPrecision: boolean,
+	slot: string,
+	feedback: Feedback
+)
+	local result = PlayerStateService:ApplyDamage(victim, damage, slot, shooter)
+	if result then
+		feedback.Hit = true
+		feedback.Precision = feedback.Precision or isPrecision
+		feedback.ShieldBroken = feedback.ShieldBroken or result.ShieldBroken
+		feedback.Eliminated = feedback.Eliminated or result.Eliminated
+	end
+end
+
+-- One raycast; used by hitscan and per shotgun pellet.
+local function fireRay(
+	shooter: Player,
+	character: Model,
+	origin: Vector3,
+	direction: Vector3,
+	weapon: any,
+	baseDamage: number,
+	feedback: Feedback
+)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character, projectileFolder }
+
+	local result = workspace:Raycast(origin, direction * weapon.MaxRangeStuds, params)
+	if not result then
+		return
+	end
+	local victim, isPrecision = victimFromResult(result, shooter)
+	if not victim then
+		return
+	end
+	local distance = (result.Position - origin).Magnitude
+	local falloff = WeaponMath.falloffScale(
+		weapon.FalloffStartStuds,
+		weapon.FalloffEndStuds,
+		weapon.FalloffMinDamageScale,
+		distance
+	)
+	local damage = WeaponMath.damage(baseDamage, weapon.PrecisionMultiplier, isPrecision, falloff)
+	applyHit(shooter, victim :: Player, damage, isPrecision, weapon.Slot, feedback)
+end
+
+local function explodeRocket(projectile: Projectile, position: Vector3, directVictim: Player?)
+	local weapon = projectile.Weapon
+	local owner = projectile.Owner
+	local feedback = newFeedback()
+
+	if directVictim then
+		applyHit(owner, directVictim, weapon.DirectDamage, false, weapon.Slot, feedback)
+	end
+
+	for _, other in Players:GetPlayers() do
+		if other == owner or other == directVictim or not PlayerStateService:IsAlive(other) then
+			continue
+		end
+		local character = other.Character
+		local root = character and character.PrimaryPart
+		if not root then
+			continue
+		end
+		local toTarget = root.Position - position
+		local distance = toTarget.Magnitude
+		if distance > weapon.SplashRadiusStuds then
+			continue
+		end
+		-- Obstruction: ignore the target's own body so only walls block the blast.
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { character, projectileFolder }
+		local blocked = workspace:Raycast(position, toTarget, params)
+		if blocked then
+			continue
+		end
+		local damage =
+			WeaponMath.splashDamage(weapon.SplashMaxDamage, weapon.SplashMinDamage, weapon.SplashRadiusStuds, distance)
+		applyHit(owner, other, damage, false, weapon.Slot, feedback)
+	end
+
+	if feedback.Hit then
+		combatFeedback:FireClient(owner, feedback)
+	end
+end
+
+local function spawnRocket(player: Player, character: Model, origin: Vector3, direction: Vector3, weapon: any)
+	local part = Instance.new("Part")
+	part.Name = "Rocket"
+	part.Shape = Enum.PartType.Ball
+	part.Size = Vector3.new(0.8, 0.8, 0.8)
+	part.Color = Color3.fromRGB(255, 170, 60)
+	part.Material = Enum.Material.Neon
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false -- raycasts ignore all rockets
+	part.CanTouch = false
+	part.CFrame = CFrame.new(origin)
+	part.Parent = projectileFolder
+
+	table.insert(projectiles, {
+		Owner = player,
+		Character = character,
+		Weapon = weapon,
+		Position = origin,
+		Velocity = direction * weapon.ProjectileSpeed,
+		Life = weapon.ProjectileLifetimeSeconds,
+		Part = part,
+	})
+end
+
+local function updateProjectiles(deltaSeconds: number)
+	for index = #projectiles, 1, -1 do
+		local projectile = projectiles[index]
+		projectile.Life -= deltaSeconds
+		local step = projectile.Velocity * deltaSeconds
+
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { projectile.Character, projectileFolder }
+		local result = workspace:Raycast(projectile.Position, step, params)
+
+		local explodeAt: Vector3? = nil
+		local directVictim: Player? = nil
+		if result then
+			explodeAt = result.Position
+			directVictim = victimFromResult(result, projectile.Owner)
+		else
+			projectile.Position += step
+			projectile.Part.CFrame = CFrame.new(projectile.Position)
+			if projectile.Life <= 0 then
+				explodeAt = projectile.Position
+			end
+		end
+
+		if explodeAt then
+			explodeRocket(projectile, explodeAt, directVictim)
+			projectile.Part:Destroy()
+			table.remove(projectiles, index)
+		end
+	end
+end
 
 local function onFireRequest(player: Player, origin: unknown, direction: unknown, isAds: unknown)
-	local state = states[player]
-	if not state or state.Reloading then
+	local slot, weapon = activeState(player)
+	if not slot or slot.Reloading then
 		return
 	end
-	if not PlayerStateService:IsAlive(player) then
-		return
-	end
-	if not PlayerStateService:IsCombatEnabled() then
-		-- No firing during the pre-round countdown / post-round: skip ammo,
-		-- raycast, and the shot broadcast entirely (issue #28).
+	if not PlayerStateService:IsAlive(player) or not PlayerStateService:IsCombatEnabled() then
 		return
 	end
 
@@ -116,110 +328,115 @@ local function onFireRequest(player: Player, origin: unknown, direction: unknown
 		return
 	end
 
-	local weapon = WeaponConfig[state.WeaponId]
 	local now = os.clock()
 	local interval = WeaponMath.fireIntervalSeconds(weapon.RoundsPerMinute)
-	if now - state.LastFireClock < interval * FIRE_INTERVAL_TOLERANCE then
-		return
-	end
-	if state.Magazine <= 0 then
+	if now - slot.LastFireClock < interval * FIRE_INTERVAL_TOLERANCE or slot.Magazine <= 0 then
 		return
 	end
 
-	state.LastFireClock = now
-	state.Magazine -= 1
-
-	-- Positional audio on other clients (issue #23).
-	weaponFiredBroadcast:FireAllClients({ UserId = player.UserId, Position = head.Position })
+	slot.LastFireClock = now
+	slot.Magazine -= 1
+	weaponFiredBroadcast:FireAllClients({ UserId = player.UserId, Position = head.Position, WeaponId = slot.WeaponId })
 
 	local isMoving = humanoid.MoveDirection.Magnitude > 0.1
 	local isAirborne = humanoid.FloorMaterial == Enum.Material.Air
-	local spread = WeaponMath.spreadDegrees(weapon.SpreadDegrees, isAds == true, isMoving, isAirborne)
-	local shotDirection = applySpread(directionVector.Unit, spread, random)
+	local baseDirection = directionVector.Unit
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character }
-
-	local result = workspace:Raycast(originVector, shotDirection * weapon.MaxRangeStuds, params)
-
-	local feedback = {
-		Hit = false,
-		Precision = false,
-		ShieldBroken = false,
-		Eliminated = false,
-		Position = if result then result.Position else originVector + shotDirection * weapon.MaxRangeStuds,
-	}
-
-	if result then
-		local hitCharacter = result.Instance:FindFirstAncestorOfClass("Model")
-		local victim = hitCharacter and Players:GetPlayerFromCharacter(hitCharacter)
-		if victim and victim ~= player then
-			local distance = (result.Position - originVector).Magnitude
-			local falloff = WeaponMath.falloffScale(
-				weapon.FalloffStartStuds,
-				weapon.FalloffEndStuds,
-				weapon.FalloffMinDamageScale,
-				distance
+	if weapon.Type == "Projectile" then
+		spawnRocket(player, character, originVector, baseDirection, weapon)
+	elseif weapon.Type == "Shotgun" then
+		local spread = WeaponMath.spreadDegrees(weapon.SpreadDegrees, isAds == true, isMoving, isAirborne)
+		local feedback = newFeedback()
+		for _ = 1, weapon.Pellets do
+			fireRay(
+				player,
+				character,
+				originVector,
+				applySpread(baseDirection, spread),
+				weapon,
+				weapon.PelletDamage,
+				feedback
 			)
-			local isPrecision = result.Instance.Name == "Head"
-			local damage = WeaponMath.damage(weapon.BodyDamage, weapon.PrecisionMultiplier, isPrecision, falloff)
-
-			local damageResult = PlayerStateService:ApplyDamage(victim, damage, weapon.Slot, player)
-			if damageResult then
-				feedback.Hit = true
-				feedback.Precision = isPrecision
-				feedback.ShieldBroken = damageResult.ShieldBroken
-				feedback.Eliminated = damageResult.Eliminated
-			end
 		end
+		combatFeedback:FireClient(player, feedback)
+	else
+		local spread = WeaponMath.spreadDegrees(weapon.SpreadDegrees, isAds == true, isMoving, isAirborne)
+		local feedback = newFeedback()
+		fireRay(
+			player,
+			character,
+			originVector,
+			applySpread(baseDirection, spread),
+			weapon,
+			weapon.BodyDamage,
+			feedback
+		)
+		combatFeedback:FireClient(player, feedback)
 	end
 
-	combatFeedback:FireClient(player, feedback)
 	replicate(player)
 end
 
 local function onReloadRequest(player: Player)
-	local state = states[player]
-	if not state or state.Reloading then
+	local slot, weapon = activeState(player)
+	if not slot or slot.Reloading or not PlayerStateService:IsAlive(player) then
 		return
 	end
-	if not PlayerStateService:IsAlive(player) then
-		return
-	end
-
-	local weapon = WeaponConfig[state.WeaponId]
-	if state.Magazine >= weapon.MagazineSize or state.Reserve <= 0 then
+	if slot.Magazine >= weapon.MagazineSize or slot.Reserve <= 0 then
 		return
 	end
 
-	state.Reloading = true
+	slot.Reloading = true
 	replicate(player)
 
-	local generation = state.Generation
+	local loadout = loadouts[player]
+	local generation = loadout.Generation
+	local reloadingSlot = slot
 	task.delay(weapon.ReloadSeconds, function()
-		local current = states[player]
-		if not current or current.Generation ~= generation or not current.Reloading then
+		local current = loadouts[player]
+		if not current or current.Generation ~= generation or not reloadingSlot.Reloading then
 			return
 		end
-		local needed = weapon.MagazineSize - current.Magazine
-		local transferred = math.min(needed, current.Reserve)
-		current.Magazine += transferred
-		current.Reserve -= transferred
-		current.Reloading = false
-		replicate(player)
+		local needed = weapon.MagazineSize - reloadingSlot.Magazine
+		local transferred = math.min(needed, reloadingSlot.Reserve)
+		reloadingSlot.Magazine += transferred
+		reloadingSlot.Reserve -= transferred
+		reloadingSlot.Reloading = false
+		if current.ActiveSlot == loadout.ActiveSlot then
+			replicate(player)
+		end
 	end)
+end
+
+local function onEquipRequest(player: Player, slotName: unknown)
+	local loadout = loadouts[player]
+	if not loadout or typeof(slotName) ~= "string" then
+		return
+	end
+	if not loadout.Slots[slotName] or slotName == loadout.ActiveSlot then
+		return
+	end
+	-- Switching cancels a reload in progress on the slot we leave.
+	local leaving = loadout.Slots[loadout.ActiveSlot]
+	if leaving then
+		leaving.Reloading = false
+	end
+	loadout.ActiveSlot = slotName
+	replicate(player)
 end
 
 function WeaponService.Init(_self: any)
 	weaponStateChanged = RemoteUtil.getEvent(RemoteNames.WeaponStateChanged)
 	combatFeedback = RemoteUtil.getEvent(RemoteNames.CombatFeedback)
 	weaponFiredBroadcast = RemoteUtil.getEvent(RemoteNames.WeaponFiredBroadcast)
-	local fireRequest = RemoteUtil.getEvent(RemoteNames.FireWeaponRequest)
-	local reloadRequest = RemoteUtil.getEvent(RemoteNames.ReloadRequest)
 
-	fireRequest.OnServerEvent:Connect(onFireRequest)
-	reloadRequest.OnServerEvent:Connect(onReloadRequest)
+	projectileFolder = Instance.new("Folder")
+	projectileFolder.Name = "Projectiles"
+	projectileFolder.Parent = workspace
+
+	RemoteUtil.getEvent(RemoteNames.FireWeaponRequest).OnServerEvent:Connect(onFireRequest)
+	RemoteUtil.getEvent(RemoteNames.ReloadRequest).OnServerEvent:Connect(onReloadRequest)
+	RemoteUtil.getEvent(RemoteNames.EquipSlotRequest).OnServerEvent:Connect(onEquipRequest)
 end
 
 function WeaponService.Start(_self: any)
@@ -230,7 +447,13 @@ function WeaponService.Start(_self: any)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
-		states[player] = nil
+		loadouts[player] = nil
+	end)
+
+	RunService.Heartbeat:Connect(function(deltaSeconds)
+		if #projectiles > 0 then
+			updateProjectiles(deltaSeconds)
+		end
 	end)
 end
 

@@ -60,8 +60,9 @@ local function playAtPosition(def: AudioConfig.SoundDef, position: Vector3)
 end
 
 function WeaponAudioController.Start(_self: any)
-	WeaponController.ShotFired:Connect(function()
-		playLocal(AudioConfig.Weapon.Fire)
+	WeaponController.ShotFired:Connect(function(weaponId: string?)
+		local def = (weaponId and AudioConfig.WeaponFire[weaponId]) or AudioConfig.Weapon.Fire
+		playLocal(def)
 	end)
 
 	WeaponController.EmptyTriggered:Connect(function()
@@ -89,9 +90,11 @@ function WeaponAudioController.Start(_self: any)
 	)
 
 	local weaponFired = RemoteUtil.getEvent(RemoteNames.WeaponFiredBroadcast)
-	weaponFired.OnClientEvent:Connect(function(payload: { UserId: number, Position: Vector3 })
+	weaponFired.OnClientEvent:Connect(function(payload: { UserId: number, Position: Vector3, WeaponId: string? })
 		if payload.UserId ~= Players.LocalPlayer.UserId then
-			playAtPosition(AudioConfig.Weapon.RemoteFire, payload.Position)
+			local def = (payload.WeaponId and AudioConfig.WeaponRemoteFire[payload.WeaponId])
+				or AudioConfig.Weapon.RemoteFire
+			playAtPosition(def, payload.Position)
 		end
 	end)
 

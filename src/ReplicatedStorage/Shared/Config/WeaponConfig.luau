@@ -9,6 +9,7 @@ local WeaponConfig = {
 	-- Vertical slice loadout
 	AutoRifle = {
 		Slot = "Primary" :: WeaponSlot,
+		Type = "Hitscan",
 		DisplayName = "Auto Rifle",
 		BodyDamage = 18,
 		PrecisionMultiplier = 1.5,
@@ -31,29 +32,45 @@ local WeaponConfig = {
 
 	Shotgun = {
 		Slot = "Special" :: WeaponSlot,
+		Type = "Shotgun",
 		DisplayName = "Shotgun",
 		Pellets = 8,
 		PelletDamage = 14,
-		PrecisionMultiplier = 1.0,
+		PrecisionMultiplier = 1.15,
 		RoundsPerMinute = 70,
 		MagazineSize = 5,
-		ReloadSecondsPerShell = 0.55,
+		ReserveAmmo = 20,
+		ReloadSeconds = 2.6,
 		FalloffStartStuds = 10,
-		FalloffEndStuds = 25,
-		FalloffMinDamageScale = 0.3,
+		FalloffEndStuds = 28,
+		FalloffMinDamageScale = 0.25,
+		MaxRangeStuds = 120,
+		AdsFov = 70,
+		SpreadDegrees = {
+			-- Cone half-angle applied per pellet.
+			HipBase = 4.5,
+			AdsBase = 2.6,
+			MovingAdd = 1.0,
+			AirborneAdd = 2.0,
+		},
 	},
 
 	RocketLauncher = {
 		Slot = "Heavy" :: WeaponSlot,
+		Type = "Projectile",
 		DisplayName = "Rocket Launcher",
 		DirectDamage = 220,
-		SplashRadiusStuds = 12,
-		SplashMaxDamage = 150,
-		SplashMinDamage = 40,
+		SplashRadiusStuds = 14,
+		SplashMaxDamage = 110,
+		SplashMinDamage = 30,
 		RoundsPerMinute = 40,
 		MagazineSize = 1,
+		ReserveAmmo = 4,
 		ReloadSeconds = 3.0,
+		AdsFov = 72,
 		ProjectileSpeed = 110,
+		ProjectileLifetimeSeconds = 4,
+		MaxRangeStuds = 500,
 	},
 
 	-- Deferred archetypes (do not implement before their issues open):
