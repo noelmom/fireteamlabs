@@ -1,17 +1,16 @@
 --!strict
--- Sprint/crouch state and speeds, sprint FOV (MASTERPLAN.md section 10).
--- Values come from GameConfig.Movement; the server independently validates
--- resulting speeds in MovementValidationService.
+-- Sprint/crouch state and speeds (MASTERPLAN.md section 10). Values come
+-- from GameConfig.Movement; FOV goes through CameraController; the server
+-- independently validates resulting speeds in MovementValidationService.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
+local CameraController = require(script.Parent.CameraController)
 local InputController = require(script.Parent.InputController)
 
 local Movement = GameConfig.Movement
-local FOV_TWEEN = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local MovementController = {
 	Name = "MovementController",
@@ -30,13 +29,6 @@ local function currentSpeed(): number
 	return Movement.WalkSpeed
 end
 
-local function currentFov(): number
-	if sprinting and not crouching then
-		return Movement.SprintFov
-	end
-	return Movement.NormalFov
-end
-
 local function apply()
 	local player = Players.LocalPlayer
 	local character = player.Character
@@ -44,11 +36,7 @@ local function apply()
 	if humanoid then
 		humanoid.WalkSpeed = currentSpeed()
 	end
-
-	local camera = workspace.CurrentCamera
-	if camera then
-		TweenService:Create(camera, FOV_TWEEN, { FieldOfView = currentFov() }):Play()
-	end
+	CameraController:SetSprinting(sprinting and not crouching)
 end
 
 function MovementController.Start(_self: any)
@@ -67,11 +55,6 @@ function MovementController.Start(_self: any)
 		crouching = false
 		task.defer(apply)
 	end)
-
-	local camera = workspace.CurrentCamera
-	if camera then
-		camera.FieldOfView = Movement.NormalFov
-	end
 end
 
 return MovementController

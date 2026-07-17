@@ -15,6 +15,7 @@ local RemoteNames = {
 	-- Server -> Client state
 	MatchStateChanged = "MatchStateChanged",
 	PlayerStateChanged = "PlayerStateChanged",
+	WeaponStateChanged = "WeaponStateChanged",
 	CombatFeedback = "CombatFeedback",
 }
 

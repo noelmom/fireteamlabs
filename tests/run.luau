@@ -4,6 +4,7 @@
 
 local specs = {
 	require("./specs/damage-math.spec"),
+	require("./specs/weapon-math.spec"),
 }
 
 local passed = 0

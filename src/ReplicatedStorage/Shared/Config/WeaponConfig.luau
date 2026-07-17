@@ -19,6 +19,14 @@ local WeaponConfig = {
 		FalloffStartStuds = 40,
 		FalloffEndStuds = 90,
 		FalloffMinDamageScale = 0.6,
+		MaxRangeStuds = 300,
+		AdsFov = 65,
+		SpreadDegrees = {
+			HipBase = 1.4,
+			AdsBase = 0.35,
+			MovingAdd = 0.9,
+			AirborneAdd = 2.2,
+		},
 	},
 
 	Shotgun = {
