@@ -50,6 +50,10 @@ local GameConfig = {
 		NormalFov = 80,
 		SprintFov = 88,
 
+		-- Double jump (issue #26): one extra mid-air jump, reset on landing.
+		MaxAirJumps = 1,
+		DoubleJumpVelocity = 50, -- upward velocity (studs/s) applied on the air jump
+
 		-- Experimental; must stay disabled for the vertical slice.
 		SlideEnabled = false,
 
