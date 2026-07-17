@@ -1,7 +1,8 @@
 --!strict
 -- Client side of the firing pipeline (issue #7): sends fire/reload requests
--- with the camera ray, drives ADS FOV, and shows a temporary debug HUD
--- (crosshair, hitmarker, ammo) until the real HUD lands in issue #12.
+-- with the camera ray and drives ADS FOV. Presentation (ammo, hitmarker,
+-- crosshair) lives in HudController, fed by the same remotes and by the
+-- signals this controller exposes.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -38,50 +39,6 @@ local combatLive = true
 local lastAutoReloadClock = 0
 local fireRequest: RemoteEvent
 local reloadRequest: RemoteEvent
-
-local ammoLabel: TextLabel
-local hitmarker: TextLabel
-
-local function buildDebugHud()
-	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "CombatDebugHud"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-
-	local crosshair = Instance.new("Frame")
-	crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
-	crosshair.Position = UDim2.fromScale(0.5, 0.5)
-	crosshair.Size = UDim2.fromOffset(4, 4)
-	crosshair.BackgroundColor3 = Color3.new(1, 1, 1)
-	crosshair.BorderSizePixel = 0
-	crosshair.Parent = gui
-
-	hitmarker = Instance.new("TextLabel")
-	hitmarker.AnchorPoint = Vector2.new(0.5, 0.5)
-	hitmarker.Position = UDim2.fromScale(0.5, 0.5)
-	hitmarker.Size = UDim2.fromOffset(40, 40)
-	hitmarker.BackgroundTransparency = 1
-	hitmarker.Text = "×"
-	hitmarker.TextSize = 32
-	hitmarker.TextColor3 = Color3.new(1, 1, 1)
-	hitmarker.Visible = false
-	hitmarker.Parent = gui
-
-	ammoLabel = Instance.new("TextLabel")
-	ammoLabel.AnchorPoint = Vector2.new(1, 1)
-	ammoLabel.Position = UDim2.new(1, -24, 1, -24)
-	ammoLabel.Size = UDim2.fromOffset(200, 32)
-	ammoLabel.BackgroundTransparency = 1
-	ammoLabel.Text = ""
-	ammoLabel.TextSize = 24
-	ammoLabel.TextXAlignment = Enum.TextXAlignment.Right
-	ammoLabel.TextColor3 = Color3.new(1, 1, 1)
-	ammoLabel.Parent = gui
-
-	gui.Parent = playerGui
-end
 
 local function tryFire()
 	-- Predictive gate only; the server independently enforces all of this.
@@ -121,23 +78,7 @@ local function tryFire()
 	WeaponController.ShotFired:Fire()
 end
 
-local function flashHitmarker(feedback: { Precision: boolean?, Eliminated: boolean? })
-	if feedback.Eliminated then
-		hitmarker.TextColor3 = Color3.fromRGB(255, 70, 70)
-	elseif feedback.Precision then
-		hitmarker.TextColor3 = Color3.fromRGB(255, 210, 80)
-	else
-		hitmarker.TextColor3 = Color3.new(1, 1, 1)
-	end
-	hitmarker.Visible = true
-	task.delay(0.15, function()
-		hitmarker.Visible = false
-	end)
-end
-
 function WeaponController.Start(_self: any)
-	buildDebugHud()
-
 	fireRequest = RemoteUtil.getEvent(RemoteNames.FireWeaponRequest)
 	reloadRequest = RemoteUtil.getEvent(RemoteNames.ReloadRequest)
 	local weaponStateChanged = RemoteUtil.getEvent(RemoteNames.WeaponStateChanged)
@@ -168,13 +109,11 @@ function WeaponController.Start(_self: any)
 	weaponStateChanged.OnClientEvent:Connect(function(state: WeaponState)
 		currentWeaponId = state.WeaponId
 		lastState = state
-		ammoLabel.Text = if state.Reloading then "RELOADING…" else `{state.Magazine} / {state.Reserve}`
 		WeaponController.StateUpdated:Fire(state)
 	end)
 
 	combatFeedback.OnClientEvent:Connect(function(feedback: { Hit: boolean, Precision: boolean, Eliminated: boolean })
 		if feedback.Hit then
-			flashHitmarker(feedback)
 			WeaponController.HitConfirmed:Fire(feedback)
 		end
 	end)
