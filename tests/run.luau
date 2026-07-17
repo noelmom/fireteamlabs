@@ -8,6 +8,7 @@ local specs = {
 	require("./specs/match-logic.spec"),
 	require("./specs/team-assignment.spec"),
 	require("./specs/ability-logic.spec"),
+	require("./specs/quality-logic.spec"),
 }
 
 local passed = 0
