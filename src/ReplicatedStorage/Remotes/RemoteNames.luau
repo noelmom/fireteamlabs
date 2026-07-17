@@ -9,6 +9,7 @@ local RemoteNames = {
 	ReloadRequest = "ReloadRequest",
 	EquipSlotRequest = "EquipSlotRequest",
 	UseAbilityRequest = "UseAbilityRequest",
+	SetClassRequest = "SetClassRequest",
 	ThrowGrenadeRequest = "ThrowGrenadeRequest",
 	InteractRequest = "InteractRequest",
 
@@ -17,6 +18,8 @@ local RemoteNames = {
 	PlayerStateChanged = "PlayerStateChanged",
 	WeaponStateChanged = "WeaponStateChanged",
 	WeaponFiredBroadcast = "WeaponFiredBroadcast",
+	AbilityStateChanged = "AbilityStateChanged",
+	AbilityEffect = "AbilityEffect",
 	CombatFeedback = "CombatFeedback",
 }
 
