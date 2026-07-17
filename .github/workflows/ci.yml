@@ -17,6 +17,9 @@ jobs:
       - name: Rojo build
         run: rojo build default.project.json --output build.rbxlx
 
+      - name: Unit tests (lune)
+        run: lune run tests/run.luau
+
       - name: Lint (selene)
         run: selene src
 
