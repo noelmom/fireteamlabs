@@ -34,7 +34,7 @@ This is the working public and repository-facing title until a future branding i
 Recommended repository name:
 
 ```text
-fireteam-labs
+fireteamlabs
 ```
 
 Recommended Roblox experience name:
