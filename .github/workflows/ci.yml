@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain (rokit)
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Rojo build
+        run: rojo build default.project.json --output build.rbxlx
+
+      - name: Lint (selene)
+        run: selene src
+
+      - name: Format check (stylua)
+        run: stylua --check src

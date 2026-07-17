@@ -1,0 +1,32 @@
+name: Feature
+description: A scoped unit of implementation work
+labels: [feature]
+body:
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What this issue delivers.
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of Scope
+      description: Explicitly excluded work.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Checkable conditions for closing this issue.
+      placeholder: |
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Issues that must land first.

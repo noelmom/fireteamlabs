@@ -1,0 +1,26 @@
+name: Bug
+description: Something behaves incorrectly
+labels: [bug]
+body:
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction Steps
+    validations:
+      required: true
+  - type: input
+    id: context
+    attributes:
+      label: Playlist / Map / Context
