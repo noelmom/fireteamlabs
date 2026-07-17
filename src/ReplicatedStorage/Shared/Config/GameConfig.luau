@@ -12,10 +12,19 @@ local GameConfig = {
 		RespawnsDuringRound = false,
 		TeamSideRotation = true,
 
+		-- Interim match-start gate for #2. Real per-playlist sizing lands in #3.
+		MinPlayersPerTeamToStart = 1,
+		-- Seconds to wait for all rostered players to have a live character
+		-- before a round's elimination checks begin.
+		RoundReadyTimeoutSeconds = 5,
+
 		Overtime = {
 			-- Activates when the round timer expires with both teams alive.
 			CaptureSeconds = 8,
 			ZoneRadiusStuds = 12,
+			-- #2 has no capture logic yet; overtime times out to a draw.
+			-- #4 replaces this with the contested capture zone.
+			DrawOnTimeout = true,
 		},
 	},
 
