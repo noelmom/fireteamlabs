@@ -42,6 +42,8 @@ type State = {
 	MatchWinner: TeamId?,
 	WinTarget: number,
 	TeamSize: number, -- players per team this match (0 while waiting)
+	CaptureTeam: TeamId?, -- overtime: team currently capturing the zone
+	CaptureProgress: number, -- overtime: 0..1 capture completion
 }
 
 local MatchService = {
@@ -59,6 +61,8 @@ local state: State = {
 	MatchWinner = nil,
 	WinTarget = Match.RoundWinTarget,
 	TeamSize = 0,
+	CaptureTeam = nil,
+	CaptureProgress = 0,
 }
 
 local matchGeneration = 0
@@ -85,6 +89,8 @@ local function replicate()
 		MatchWinner = state.MatchWinner,
 		WinTarget = state.WinTarget,
 		TeamSize = state.TeamSize,
+		CaptureTeam = state.CaptureTeam,
+		CaptureProgress = state.CaptureProgress,
 	})
 end
 
@@ -137,6 +143,102 @@ local function rosterConnectedCount(team: TeamId): number
 		end
 	end
 	return count
+end
+
+-- Counts living rostered players of each team standing within the capture
+-- zone's horizontal radius. Uses server-side character positions, so capture
+-- can't be forged from the client (issue #4).
+local function countInZone(center: Vector3, radius: number): (number, number)
+	local alpha, bravo = 0, 0
+	local radiusSq = radius * radius
+	for _, player in roster do
+		if not player:IsDescendantOf(Players) or not PlayerStateService:IsAlive(player) then
+			continue
+		end
+		local character = player.Character
+		local root = character and character.PrimaryPart
+		if not root then
+			continue
+		end
+		local dx = root.Position.X - center.X
+		local dz = root.Position.Z - center.Z
+		if dx * dx + dz * dz <= radiusSq then
+			local team = TeamService:GetTeam(player)
+			if team == "Alpha" then
+				alpha += 1
+			elseif team == "Bravo" then
+				bravo += 1
+			end
+		end
+	end
+	return alpha, bravo
+end
+
+-- Overtime: the central zone must be captured. A team alone in the zone makes
+-- progress; contesting it pauses progress; elimination still decides the round.
+-- Times out to a draw at the hard cap (issue #4).
+local function runOvertimePhase(generation: number): RoundResult
+	local overtime = Match.Overtime
+	local center = MapService:GetOvertimeCenter()
+
+	state.RoundPhase = "Overtime"
+	state.PhaseEndTime = serverNow() + overtime.MaxDurationSeconds
+	state.CaptureTeam = nil
+	state.CaptureProgress = 0
+	MapService:SetZoneActive(true, nil)
+	replicate()
+
+	local owner: TeamId? = nil
+	local progress = 0
+	local deadline = os.clock() + overtime.MaxDurationSeconds
+	local lastClock = os.clock()
+	local lastReplicate = os.clock()
+
+	local function finish(result: RoundResult): RoundResult
+		MapService:SetZoneActive(false, nil)
+		return result
+	end
+
+	while os.clock() < deadline do
+		if matchGeneration ~= generation then
+			return finish("Draw")
+		end
+
+		local elimination = MatchLogic.resolveElimination(rosterAliveCount("Alpha"), rosterAliveCount("Bravo"))
+		if elimination then
+			return finish(elimination)
+		end
+
+		local now = os.clock()
+		local delta = now - lastClock
+		lastClock = now
+
+		local alphaIn, bravoIn = countInZone(center, overtime.ZoneRadiusStuds)
+		local previousOwner = owner
+		local winner
+		owner, progress, winner =
+			MatchLogic.stepCapture(owner, progress, alphaIn, bravoIn, delta, overtime.CaptureSeconds)
+
+		if winner then
+			return finish(winner)
+		end
+
+		state.CaptureTeam = owner
+		state.CaptureProgress = math.clamp(progress / overtime.CaptureSeconds, 0, 1)
+		if owner ~= previousOwner or now - lastReplicate >= 0.15 then
+			MapService:SetZoneActive(true, owner)
+			replicate()
+			lastReplicate = now
+		end
+
+		task.wait()
+	end
+
+	-- Cap reached without a capture or elimination.
+	if owner and not overtime.DrawOnTimeout then
+		return finish(owner)
+	end
+	return finish("Draw")
 end
 
 local function loadAll(players: { Player })
@@ -194,24 +296,7 @@ local function runActivePhase(generation: number): RoundResult
 		return expiredResult
 	end
 
-	state.RoundPhase = "Overtime"
-	state.PhaseEndTime = serverNow() + Match.Overtime.CaptureSeconds
-	replicate()
-
-	local otDeadline = os.clock() + Match.Overtime.CaptureSeconds
-	while os.clock() < otDeadline do
-		if matchGeneration ~= generation then
-			return "Draw"
-		end
-		local result = MatchLogic.resolveElimination(rosterAliveCount("Alpha"), rosterAliveCount("Bravo"))
-		if result then
-			return result
-		end
-		task.wait()
-	end
-
-	-- TODO(#4): contested capture zone decides overtime. Until then it draws.
-	return "Draw"
+	return runOvertimePhase(generation)
 end
 
 local function runRound(generation: number): RoundResult?
@@ -226,6 +311,8 @@ local function runRound(generation: number): RoundResult?
 	-- PreRound: spawn the whole roster together, then count down.
 	state.RoundPhase = "PreRound"
 	state.RoundResult = nil
+	state.CaptureTeam = nil
+	state.CaptureProgress = 0
 	state.PhaseEndTime = nil
 	replicate()
 

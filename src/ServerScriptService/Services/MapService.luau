@@ -13,6 +13,11 @@ local TeamService = require(ServerScriptService.Services.TeamService)
 
 type TeamId = "Alpha" | "Bravo"
 
+local ZONE_IDLE_COLOR = Color3.fromRGB(90, 180, 255)
+local ZONE_NEUTRAL_COLOR = Color3.fromRGB(210, 216, 224)
+local ZONE_ALPHA_COLOR = Color3.fromRGB(90, 150, 255)
+local ZONE_BRAVO_COLOR = Color3.fromRGB(255, 120, 90)
+
 local MapService = {
 	Name = "MapService",
 }
@@ -48,6 +53,33 @@ end
 function MapService.SetTeamSides(_self: any, alphaSide: TeamId, bravoSide: TeamId)
 	sideOfTeam.Alpha = alphaSide
 	sideOfTeam.Bravo = bravoSide
+end
+
+-- Center of the overtime capture zone (#4).
+function MapService.GetOvertimeCenter(_self: any): Vector3
+	local marker = map:FindFirstChild("OvertimeZoneMarker") :: BasePart?
+	return if marker then marker.Position else Vector3.zero
+end
+
+-- Shows/hides the overtime zone and tints it by the capturing team (#4).
+function MapService.SetZoneActive(_self: any, active: boolean, owner: TeamId?)
+	local marker = map:FindFirstChild("OvertimeZoneMarker") :: BasePart?
+	if not marker then
+		return
+	end
+	if not active then
+		marker.Transparency = 0.85
+		marker.Color = ZONE_IDLE_COLOR
+		return
+	end
+	marker.Transparency = 0.5
+	if owner == "Alpha" then
+		marker.Color = ZONE_ALPHA_COLOR
+	elseif owner == "Bravo" then
+		marker.Color = ZONE_BRAVO_COLOR
+	else
+		marker.Color = ZONE_NEUTRAL_COLOR
+	end
 end
 
 function MapService.Init(_self: any)

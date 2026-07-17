@@ -21,11 +21,13 @@ local GameConfig = {
 		MatchStartGraceSeconds = 3,
 
 		Overtime = {
-			-- Activates when the round timer expires with both teams alive.
+			-- Activates when the round timer expires with both teams alive (#4).
+			-- Seconds of uncontested presence in the central zone to capture it.
 			CaptureSeconds = 8,
 			ZoneRadiusStuds = 12,
-			-- #2 has no capture logic yet; overtime times out to a draw.
-			-- #4 replaces this with the contested capture zone.
+			-- Hard cap on overtime length so a mutual standoff can't run forever.
+			MaxDurationSeconds = 45,
+			-- If the cap is hit with no capture, the round is a draw.
 			DrawOnTimeout = true,
 		},
 	},

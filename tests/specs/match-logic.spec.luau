@@ -65,6 +65,32 @@ return {
 		assertEq(MatchLogic.isCombatLive("PostMatch", "PostRound"), false, "post-match")
 	end,
 
+	["overtime: a lone team accumulates capture and eventually wins"] = function()
+		local owner, progress, winner = MatchLogic.stepCapture(nil, 0, 1, 0, 1, 8)
+		assertEq(owner, "Alpha", "alpha owns")
+		assertEq(progress, 1, "progress")
+		assertEq(winner, nil, "not yet")
+
+		owner, progress, winner = MatchLogic.stepCapture("Alpha", 7, 1, 0, 2, 8)
+		assertEq(winner, "Alpha", "capture complete")
+	end,
+
+	["overtime: contested or empty pauses progress"] = function()
+		local owner, progress, winner = MatchLogic.stepCapture("Alpha", 5, 1, 1, 1, 8)
+		assertEq(owner, "Alpha", "owner held")
+		assertEq(progress, 5, "progress held (contested)")
+		assertEq(winner, nil, "no winner")
+
+		owner, progress = MatchLogic.stepCapture("Alpha", 5, 0, 0, 1, 8)
+		assertEq(progress, 5, "progress held (empty)")
+	end,
+
+	["overtime: a new sole team resets progress"] = function()
+		local owner, progress = MatchLogic.stepCapture("Alpha", 5, 0, 1, 1, 8)
+		assertEq(owner, "Bravo", "bravo takes over")
+		assertEq(progress, 1, "reset then accrue")
+	end,
+
 	["side rotation swaps on even rounds when enabled"] = function()
 		assertEq(MatchLogic.sideForTeam("Alpha", 1, true), "Alpha", "round 1 home")
 		assertEq(MatchLogic.sideForTeam("Alpha", 2, true), "Bravo", "round 2 swapped")
