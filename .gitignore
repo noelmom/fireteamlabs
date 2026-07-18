@@ -2,6 +2,8 @@
 *.rbxl
 *.rbxlx
 *.rbxm
+# Operator rigs are source assets, not build artifacts
+!src/ReplicatedStorage/Characters/*.rbxm
 *.rbxmx
 build/
 
@@ -10,3 +12,6 @@ sourcemap.json
 
 # Tooling
 .DS_Store
+
+# FBX importer texture caches
+*.fbm/

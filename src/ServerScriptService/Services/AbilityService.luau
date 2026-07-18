@@ -296,6 +296,13 @@ local function onSetClass(player: Player, classId: unknown)
 	replicate(player)
 end
 
+-- The player's selected class id ("Specter" | "Conduit" | "Bulwark").
+-- CharacterService uses this to pick which operator rig to spawn.
+function AbilityService.GetClass(_self: any, player: Player): string
+	local state = classStates[player]
+	return if state then state.ClassId else DEFAULT_CLASS
+end
+
 function AbilityService.Init(_self: any)
 	abilityStateChanged = RemoteUtil.getEvent(RemoteNames.AbilityStateChanged)
 	abilityEffect = RemoteUtil.getEvent(RemoteNames.AbilityEffect)

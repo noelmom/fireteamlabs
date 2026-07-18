@@ -12,6 +12,9 @@
       },
       "Maps": {
         "$path": "src/ReplicatedStorage/Maps"
+      },
+      "Characters": {
+        "$path": "src/ReplicatedStorage/Characters"
       }
     },
     "ServerScriptService": {
