@@ -13,3 +13,6 @@ Every external or imported asset must be recorded here before merge: source, lic
 | `assets/characters/specter/specter_operator_r15.{fbx,glb}` | `specter_operator.glb` rigged to R15 (`rig_meshy_r15.py`) | AI-generated, project-owned | Specter rigged character for Studio Avatar Importer |
 | `assets/characters/specter/concept_{front,back}.png` | Generated (codex `image_gen`, ChatGPT auth) | AI-generated, project-owned | Specter concept reference fed to Meshy |
 | `assets/characters/specter/archive/specter_gear_blockout.*` | Generated (codex + Blender, shrinkwrap-fitted) | AI-generated, project-owned | Superseded Specter gear blockout (archived) |
+| `assets/characters/conduit/conduit_operator.glb` | Generated (Meshy.ai multi-image-to-3D from an AI concept sheet) | AI-generated, project-owned | Conduit operator hero mesh (62.5k tris, PBR 2K), pending Roblox upload |
+| `assets/characters/conduit/conduit_operator_r15.{fbx,glb}` | `conduit_operator.glb` rigged to R15 (`rig_meshy_r15.py`) | AI-generated, project-owned | Conduit rigged character for Studio Avatar Importer |
+| `assets/characters/conduit/concept_{front,back}.png` | Generated (codex `image_gen`, ChatGPT auth) | AI-generated, project-owned | Conduit concept reference fed to Meshy |
