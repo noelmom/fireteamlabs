@@ -19,3 +19,7 @@ Every external or imported asset must be recorded here before merge: source, lic
 | `assets/characters/bulwark/bulwark_operator.glb` | Generated (Meshy.ai multi-image-to-3D from an AI concept sheet) | AI-generated, project-owned | Bulwark operator hero mesh (62.3k tris, PBR 2K), pending Roblox upload |
 | `assets/characters/bulwark/bulwark_operator_r15.{fbx,glb}` | `bulwark_operator.glb` rigged to R15 (`rig_meshy_r15.py`) | AI-generated, project-owned | Bulwark rigged character for Studio Avatar Importer |
 | `assets/characters/bulwark/concept_{front,back}.png` + `archive/concept_optionB_alt.png` | Generated (codex `image_gen`, ChatGPT auth) | AI-generated, project-owned | Bulwark concept reference (Option A used; Option B archived) |
+| `assets/props/cryo-foundry/reactor_core.glb` | Generated (Meshy.ai text-to-3D) | AI-generated, project-owned | Cryo Foundry center-ring reactor centerpiece — **uploaded** Roblox asset `76349369397288` |
+| `assets/props/cryo-foundry/prop_coolant_tank.glb` | Generated (Meshy.ai text-to-3D) | AI-generated, project-owned | Coolant tank set-dressing — **uploaded** asset `97824920640367` |
+| `assets/props/cryo-foundry/prop_console.glb` | Generated (Meshy.ai text-to-3D) | AI-generated, project-owned | Control console set-dressing — **uploaded** asset `100259194132302` |
+| `assets/props/cryo-foundry/prop_pipes.glb` | Generated (Meshy.ai text-to-3D) | AI-generated, project-owned | Pipe/valve manifold set-dressing — **uploaded** asset `138014456441050` |
