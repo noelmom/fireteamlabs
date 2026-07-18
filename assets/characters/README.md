@@ -12,6 +12,18 @@ one rig drives both first-person and third-person (see `docs/FIRST_PERSON_VIEWMO
   ~70k verts. These are the character base — pick either or support both (they
   share the rig).
 
+## Operators
+
+- **Specter** (`specter/`) — recon / hunter. First fully-built hero. See below.
+- **Conduit** (`conduit/`) — tech / support. Built via the same pipeline; full-
+  face visored helmet, chest energy-core + conduits, forearm gauntlet. See
+  `conduit/README.md`.
+- **Bulwark** (`bulwark/`) — heavy assault. Built; full hard-shell plating,
+  layered pauldrons, enclosed visor-slit helmet. See `bulwark/README.md`.
+
+All three operators are now built as Meshy hero meshes rigged to the shared R15
+skeleton.
+
 ## Specter (`specter/`)
 
 The Specter recon operator is a **full geared hero character** generated with

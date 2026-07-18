@@ -9,6 +9,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local CryoFoundry = require(ReplicatedStorage.Maps.CryoFoundry)
+local CryoFoundryDressing = require(ReplicatedStorage.Maps.CryoFoundryDressing)
+local CryoFoundryShell = require(ReplicatedStorage.Maps.CryoFoundryShell)
 local TeamService = require(ServerScriptService.Services.TeamService)
 
 type TeamId = "Alpha" | "Bravo"
@@ -92,6 +94,19 @@ function MapService.Init(_self: any)
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		if humanoid and humanoid.Health > 0 then
 			humanoid.Health = 0
+		end
+	end)
+
+	-- Cosmetic art-dressing pass (props + atmosphere). Runs async and is
+	-- best-effort so asset loads never block or break the playable graybox.
+	task.spawn(function()
+		local ok, err = pcall(CryoFoundryShell.calibrate, map)
+		if not ok then
+			warn(`[MapService] kit calibration failed: {err}`)
+		end
+		ok, err = pcall(CryoFoundryDressing.dress, map)
+		if not ok then
+			warn(`[MapService] dressing pass failed: {err}`)
 		end
 	end)
 end
