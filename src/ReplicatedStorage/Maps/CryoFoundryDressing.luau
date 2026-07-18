@@ -56,10 +56,14 @@ local function loadProp(name: string): Model?
 		end
 	end
 
-	-- Scale to the target height in studs.
-	local size = model:GetExtentsSize()
-	if size.Y > 0 then
-		model:ScaleTo(def.targetHeightStuds / size.Y)
+	-- Scale by the actual imported bounding box: make the model's LONGEST side
+	-- equal targetHeightStuds. Using the max axis (not .Y) is robust to whatever
+	-- orientation Roblox imported the mesh in, so a sideways import can't blow
+	-- the scale up.
+	local ext = model:GetExtentsSize()
+	local importedMax = math.max(ext.X, ext.Y, ext.Z)
+	if importedMax > 0 then
+		model:ScaleTo(def.targetHeightStuds / importedMax)
 	end
 
 	if def.glow then

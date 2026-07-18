@@ -57,7 +57,15 @@ local function template(name: string): Model?
 			d.CanCollide = false
 		end
 	end
-	model:ScaleTo(SPM)
+	-- Normalize by the actual imported bounding box: make the piece's longest
+	-- side equal its real-world longest side (meters) x StudsPerMeter. Robust to
+	-- whatever unit scale / axis orientation Roblox used on import.
+	local ext = model:GetExtentsSize()
+	local importedMax = math.max(ext.X, ext.Y, ext.Z)
+	local realMax = math.max(def.sizeMeters.X, def.sizeMeters.Y, def.sizeMeters.Z)
+	if importedMax > 0 then
+		model:ScaleTo((realMax * SPM) / importedMax)
+	end
 	model.Name = name
 	templates[name] = model
 	return model
