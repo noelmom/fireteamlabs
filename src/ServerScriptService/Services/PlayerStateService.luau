@@ -14,6 +14,9 @@ local RemoteNames = require(ReplicatedStorage.Remotes.RemoteNames)
 local RemoteUtil = require(ReplicatedStorage.Shared.Utility.RemoteUtil)
 local Signal = require(ReplicatedStorage.Shared.Utility.Signal)
 
+local ServerScriptService = game:GetService("ServerScriptService")
+local TeamService = require(ServerScriptService.Services.TeamService)
+
 local Durability = GameConfig.Durability
 
 export type DamageResult = {
@@ -41,6 +44,7 @@ local PlayerStateService = {
 
 local states: { [Player]: PlayerState } = {}
 local playerStateChanged: RemoteEvent
+local eliminationBroadcast: RemoteEvent
 
 -- Master combat gate (issue #28). MatchService drives this from match state so
 -- no damage lands during the pre-round countdown, post-round, or post-match.
@@ -85,6 +89,16 @@ local function eliminate(player: Player, attacker: Player?, category: string?)
 	if humanoid and humanoid.Health > 0 then
 		humanoid.Health = 0
 	end
+
+	-- Feed every client's kill feed / elimination banner (issue #57). Teams are
+	-- server-only state, so the colors ride along with the names.
+	eliminationBroadcast:FireAllClients({
+		Killer = attacker and attacker.Name or nil,
+		KillerTeam = attacker and TeamService:GetTeam(attacker) or nil,
+		Victim = player.Name,
+		VictimTeam = TeamService:GetTeam(player),
+		Category = category,
+	})
 
 	PlayerStateService.Eliminated:Fire(player, attacker, category)
 end
@@ -165,6 +179,7 @@ end
 
 function PlayerStateService.Init(_self: any)
 	playerStateChanged = RemoteUtil.getEvent(RemoteNames.PlayerStateChanged)
+	eliminationBroadcast = RemoteUtil.getEvent(RemoteNames.EliminationBroadcast)
 end
 
 function PlayerStateService.Start(_self: any)

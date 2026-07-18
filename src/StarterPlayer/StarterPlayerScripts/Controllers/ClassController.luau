@@ -8,12 +8,10 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local ClassConfig = require(ReplicatedStorage.Shared.Config.ClassConfig)
 local RemoteNames = require(ReplicatedStorage.Remotes.RemoteNames)
 local RemoteUtil = require(ReplicatedStorage.Shared.Utility.RemoteUtil)
-local AbilityLogic = require(ReplicatedStorage.Shared.Utility.AbilityLogic)
 local MatchLogic = require(ReplicatedStorage.Shared.Utility.MatchLogic)
 local InputController = require(script.Parent.InputController)
 
@@ -31,11 +29,8 @@ local ClassController = {
 	Name = "ClassController",
 }
 
-local abilityName = "Flechette"
-local cooldownEnd = 0
 local currentClassId = "Specter"
 
-local indicator: TextLabel
 local picker: Frame
 local cardStrokes: { [string]: UIStroke } = {}
 local cardBackers: { [string]: Frame } = {}
@@ -149,28 +144,8 @@ local function buildGui()
 		Parent = playerGui,
 	})
 
-	-- Ability indicator, bottom-center.
-	local panel = new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -24),
-		Size = UDim2.fromOffset(210, 34),
-		BackgroundColor3 = Color3.fromRGB(10, 14, 20),
-		BackgroundTransparency = 0.35,
-		BorderSizePixel = 0,
-		Parent = gui,
-	})
-	new("UICorner", { CornerRadius = UDim.new(0, 6), Parent = panel })
-	indicator = new("TextLabel", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		TextSize = 14,
-		TextColor3 = TEXT,
-		Text = "[F] Flechette",
-		Parent = panel,
-	})
-
-	-- Pre-round picker, upper-center.
+	-- Pre-round picker, upper-center. The persistent ability readout lives in
+	-- HudController's ability bar (HUD v2, issue #57).
 	picker = new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 84),
@@ -210,17 +185,6 @@ local function buildGui()
 	refreshCards()
 end
 
-local function render()
-	local remaining = AbilityLogic.cooldownRemaining(workspace:GetServerTimeNow(), cooldownEnd)
-	if remaining > 0 then
-		indicator.Text = `[F] {abilityName}   {math.ceil(remaining)}s`
-		indicator.TextColor3 = MUTED
-	else
-		indicator.Text = `[F] {abilityName}   READY`
-		indicator.TextColor3 = Color3.fromRGB(120, 226, 150)
-	end
-end
-
 local function applyLunge(payload: { Direction: Vector3 })
 	local character = Players.LocalPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -250,10 +214,7 @@ function ClassController.Start(_self: any)
 	abilityStateChanged.OnClientEvent:Connect(
 		function(state: { ClassId: string, AbilityName: string, CooldownEnd: number })
 			currentClassId = state.ClassId
-			abilityName = state.AbilityName
-			cooldownEnd = state.CooldownEnd
 			refreshCards()
-			render()
 		end
 	)
 
@@ -267,8 +228,6 @@ function ClassController.Start(_self: any)
 			applyLunge(payload)
 		end
 	end)
-
-	RunService.RenderStepped:Connect(render)
 end
 
 return ClassController

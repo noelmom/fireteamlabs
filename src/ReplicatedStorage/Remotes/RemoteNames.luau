@@ -21,6 +21,7 @@ local RemoteNames = {
 	AbilityStateChanged = "AbilityStateChanged",
 	AbilityEffect = "AbilityEffect",
 	CombatFeedback = "CombatFeedback",
+	EliminationBroadcast = "EliminationBroadcast",
 }
 
 return RemoteNames
