@@ -105,6 +105,22 @@ local function buildApproach(model: Model, sign: number, sideName: string, tint:
 		marker(`Spawn{sideName}{index}`, Vector3.new((index - 3) * 9, Y_HIGH + 1.5, spawnZ), tint, model)
 	end
 
+	-- Engine spawn point on the platform. Without any SpawnLocation the engine
+	-- default-spawns characters at the world origin — the map center — whenever
+	-- a character loads before MapService's placement hook can run (or wins the
+	-- placement race). Neutral so either platform is a safe engine landing;
+	-- MapService still does the authoritative per-team placement.
+	local engineSpawn = Instance.new("SpawnLocation")
+	engineSpawn.Name = "EngineSpawn" .. sideName
+	engineSpawn.Size = Vector3.new(6, 1, 6)
+	engineSpawn.CFrame = CFrame.new(0, Y_HIGH + 1.5, spawnZ)
+	engineSpawn.Transparency = 1
+	engineSpawn.CanCollide = false
+	engineSpawn.Anchored = true
+	engineSpawn.Neutral = true
+	engineSpawn.Duration = 0
+	engineSpawn.Parent = model
+
 	-- High spawn down to the mid platform.
 	ramp(Vector3.new(0, Y_MID, sign * 42), Vector3.new(0, Y_HIGH, sign * 48), 14, model)
 

@@ -43,7 +43,13 @@ local function placeAtSpawn(player: Player, character: Model)
 
 	local root = character:WaitForChild("HumanoidRootPart", 5)
 	if root then
-		character:PivotTo(spawn + Vector3.new(0, 4, 0))
+		local target = spawn + Vector3.new(0, 4, 0)
+		character:PivotTo(target)
+		-- The engine positions a fresh character at its SpawnLocation *after*
+		-- CharacterAdded handlers run, overriding an immediate PivotTo. Re-pivot
+		-- after a frame so our placement is the one that sticks.
+		task.wait()
+		character:PivotTo(target)
 	end
 end
 
@@ -120,6 +126,13 @@ end
 function MapService.Start(_self: any)
 	for _, player in Players:GetPlayers() do
 		onPlayerAdded(player)
+		-- A character that loaded before this service started (Studio play
+		-- auto-load wins the race against server boot) never saw the
+		-- CharacterAdded connection and is stranded at the world origin —
+		-- inside the map center. Place it now.
+		if player.Character then
+			placeAtSpawn(player, player.Character)
+		end
 	end
 	Players.PlayerAdded:Connect(onPlayerAdded)
 end

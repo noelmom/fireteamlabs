@@ -449,14 +449,29 @@ function MatchService.Start(_self: any)
 		end)
 	end
 
-	Players.PlayerAdded:Connect(function(player)
+	local function onPlayerAdded(player: Player)
 		player.CharacterAdded:Connect(function(character)
 			watchCharacter(player, character)
 		end)
 		if state.Phase == "WaitingForPlayers" then
 			player:LoadCharacter()
 		end
-	end)
+	end
+
+	-- Players (and characters) that beat server boot — the Studio local player
+	-- auto-loads before services start — still need the death-respawn watcher,
+	-- or dying while waiting leaves them spectating forever.
+	for _, player in Players:GetPlayers() do
+		player.CharacterAdded:Connect(function(character)
+			watchCharacter(player, character)
+		end)
+		if player.Character then
+			watchCharacter(player, player.Character)
+		elseif state.Phase == "WaitingForPlayers" then
+			player:LoadCharacter()
+		end
+	end
+	Players.PlayerAdded:Connect(onPlayerAdded)
 
 	Players.PlayerRemoving:Connect(function(player)
 		if state.Phase ~= "InProgress" then

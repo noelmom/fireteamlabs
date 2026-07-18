@@ -35,15 +35,17 @@ local function apply(tier: string)
 	currentTier = tier
 	currentSettings = settings
 
-	-- Lighting.Technology is engine-restricted and cannot be written by ordinary
-	-- scripts at runtime (it raises "cannot write 'Technology' (lacking
-	-- capability RobloxScript)"). Attempt it defensively so a disallowed write
-	-- never crashes the controller; the technology is otherwise set on the
+	-- Lighting.Technology is engine-restricted: ordinary scripts can neither
+	-- read nor write it at runtime (both raise "lacking capability
+	-- RobloxScript"), so the read and the write must both stay inside the
+	-- pcall. Attempt it defensively; the technology is otherwise set on the
 	-- Lighting object in Studio / the data model.
 	local technology = (Enum.Technology :: any)[settings.LightingTechnology]
-	if technology and Lighting.Technology ~= technology then
+	if technology then
 		pcall(function()
-			Lighting.Technology = technology
+			if Lighting.Technology ~= technology then
+				Lighting.Technology = technology
+			end
 		end)
 	end
 	Lighting.GlobalShadows = settings.GlobalShadows
