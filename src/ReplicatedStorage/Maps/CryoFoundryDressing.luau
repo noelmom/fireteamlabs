@@ -71,10 +71,10 @@ local function loadProp(name: string): Model?
 		if anchor then
 			local light = Instance.new("PointLight")
 			light.Color = CYAN
-			light.Brightness = if name == "ReactorCore" then 6 else 2.5
-			-- The reactor hangs ~26 studs up, so its light needs the engine max
-			-- range for the cyan spill to still reach the pit floor below it.
-			light.Range = if name == "ReactorCore" then 60 else 16
+			-- Tuned against the clad arena: the reactor reads as the hero accent
+			-- without flooding the whole map cyan (it hangs ~26 studs up).
+			light.Brightness = if name == "ReactorCore" then 2.2 else 2.5
+			light.Range = if name == "ReactorCore" then 42 else 16
 			light.Parent = anchor
 		end
 	end
@@ -95,12 +95,33 @@ local function place(map: Model, name: string, x: number, z: number, yawDegrees:
 	model.Parent = map
 end
 
+-- Cryo Foundry ice skybox (assets/skybox/cryo-foundry, uploaded 2026-07-18).
+local SKYBOX = {
+	SkyboxFt = "rbxassetid://112941011438684",
+	SkyboxBk = "rbxassetid://118398685869389",
+	SkyboxLf = "rbxassetid://88010926208180",
+	SkyboxRt = "rbxassetid://78391958742982",
+	SkyboxUp = "rbxassetid://114947433908939",
+	SkyboxDn = "rbxassetid://135271670707680",
+}
+
 -- Cryo mood: cold fog, blue-tinted atmosphere, subtle color grade.
 local function applyAtmosphere()
+	local sky = Lighting:FindFirstChildOfClass("Sky")
+	if not sky then
+		sky = Instance.new("Sky")
+		sky.Parent = Lighting
+	end
+	for face, id in SKYBOX do
+		(sky :: any)[face] = id
+	end
+	sky.SunAngularSize = 8
+	sky.MoonAngularSize = 0
+
 	Lighting.ClockTime = 15
 	Lighting.Brightness = 2
-	Lighting.OutdoorAmbient = Color3.fromRGB(70, 84, 100)
-	Lighting.Ambient = Color3.fromRGB(50, 60, 74)
+	Lighting.OutdoorAmbient = Color3.fromRGB(84, 96, 110)
+	Lighting.Ambient = Color3.fromRGB(58, 66, 80)
 	Lighting.FogColor = Color3.fromRGB(150, 170, 190)
 	Lighting.FogStart = 40
 	Lighting.FogEnd = 240

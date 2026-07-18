@@ -106,9 +106,9 @@ function MapService.Init(_self: any)
 	-- Cosmetic art-dressing pass (props + atmosphere). Runs async and is
 	-- best-effort so asset loads never block or break the playable graybox.
 	task.spawn(function()
-		local ok, err = pcall(CryoFoundryShell.calibrate, map)
+		local ok, err = pcall(CryoFoundryShell.clad, map)
 		if not ok then
-			warn(`[MapService] kit calibration failed: {err}`)
+			warn(`[MapService] kit cladding failed: {err}`)
 		end
 		ok, err = pcall(CryoFoundryDressing.dress, map)
 		if not ok then

@@ -1,10 +1,13 @@
 --!strict
--- Cryo Foundry structural-kit cladding. First step is a CALIBRATION pass: it
--- lays a small floor patch plus one of every structural piece at known
--- coordinates so a Studio screenshot reveals the true meters->studs scale, the
--- Blender->Roblox axis/orientation, and each piece's pivot. Once those are
--- confirmed, this expands to full floor/wall cladding over the graybox (which
--- stays as invisible collision).
+-- Cryo Foundry structural-kit cladding (visual-direction pivot). The
+-- calibration pass confirmed the kit imports at exact metric scale (2 m module
+-- = 7.14 studs), upright, with base-center pivots, but with bare untextured
+-- geometry — so each piece gets an engine PBR material + color here.
+--
+-- clad() skins the graybox: kit floor tiles/wall panels/pillars over the big
+-- surfaces (cosmetic clones, CanCollide false — the graybox keeps collision),
+-- plus a material restyle of the remaining graybox parts so uncladded
+-- geometry reads as the same cold industrial space instead of SmoothPlastic.
 --
 -- Cosmetic + best-effort (pcall); never touches spawns, markers, or collision.
 
@@ -16,9 +19,49 @@ local Kit = require(ReplicatedStorage.Maps.CryoFoundryKit)
 local CryoFoundryShell = {}
 
 local SPM: number = Kit.StudsPerMeter
+local TILE = 2 * SPM -- 2 m module = 7.14 studs
 
--- Load a kit piece once, scale meters->studs, disable collision, cache as a
--- reusable template. Returns nil on failure.
+-- Engine materials per piece: the kit ships untextured, so surface character
+-- comes from Roblox PBR materials over the kit's beveled geometry.
+-- Alternate floor-tile shade: a two-tone checker makes the 2 m module grid
+-- read at a glance where single-color concrete looks like one smooth slab.
+local FLOOR_ALT_COLOR = Color3.fromRGB(139, 150, 164)
+
+local PIECE_STYLE: { [string]: { Material: Enum.Material, Color: Color3 } } = {
+	FloorSolid = { Material = Enum.Material.Concrete, Color = Color3.fromRGB(174, 184, 195) },
+	FloorGrate = { Material = Enum.Material.DiamondPlate, Color = Color3.fromRGB(96, 106, 120) },
+	WallPanel = { Material = Enum.Material.Metal, Color = Color3.fromRGB(126, 138, 152) },
+	WallHalf = { Material = Enum.Material.Metal, Color = Color3.fromRGB(108, 120, 134) },
+	Doorway = { Material = Enum.Material.Metal, Color = Color3.fromRGB(84, 94, 108) },
+	Pillar = { Material = Enum.Material.Metal, Color = Color3.fromRGB(92, 102, 116) },
+	CeilingPanel = { Material = Enum.Material.Metal, Color = Color3.fromRGB(118, 128, 142) },
+}
+
+-- Restyle for graybox parts that stay visible (by part Name). Color nil keeps
+-- the blockout's color (team tints, floor shade) and only upgrades material.
+local GRAYBOX_STYLE: { [string]: { Material: Enum.Material, Color: Color3? } } = {
+	Floor = { Material = Enum.Material.Concrete, Color = Color3.fromRGB(140, 150, 162) },
+	Perimeter = { Material = Enum.Material.Metal, Color = Color3.fromRGB(66, 74, 88) },
+	CenterRing = { Material = Enum.Material.Metal, Color = Color3.fromRGB(110, 120, 134) },
+	RingLip = { Material = Enum.Material.Metal, Color = Color3.fromRGB(72, 80, 94) },
+	LaneWall = { Material = Enum.Material.Metal, Color = Color3.fromRGB(86, 96, 110) },
+	Crate = { Material = Enum.Material.DiamondPlate, Color = Color3.fromRGB(101, 112, 128) },
+	CenterSpire = { Material = Enum.Material.Slate, Color = Color3.fromRGB(90, 100, 114) },
+	Ramp = { Material = Enum.Material.Concrete, Color = Color3.fromRGB(118, 128, 140) },
+	AlphaSpawnPlatform = { Material = Enum.Material.Concrete },
+	BravoSpawnPlatform = { Material = Enum.Material.Concrete },
+	AlphaSpawnWall = { Material = Enum.Material.Metal },
+	BravoSpawnWall = { Material = Enum.Material.Metal },
+	AlphaPlatform = { Material = Enum.Material.Concrete },
+	BravoPlatform = { Material = Enum.Material.Concrete },
+	CrystalLedge = { Material = Enum.Material.Concrete },
+	GlacierLedge = { Material = Enum.Material.Concrete },
+	CrystalLedgeBridge = { Material = Enum.Material.Metal, Color = Color3.fromRGB(80, 90, 104) },
+	GlacierLedgeBridge = { Material = Enum.Material.Metal, Color = Color3.fromRGB(80, 90, 104) },
+}
+
+-- Load a kit piece once, scale meters->studs, style, disable collision, cache
+-- as a reusable template. Returns nil on failure.
 local templates: { [string]: Model } = {}
 local function template(name: string): Model?
 	if templates[name] then
@@ -51,15 +94,21 @@ local function template(name: string): Model?
 	model.Parent = nil
 	container:Destroy()
 
+	local style = PIECE_STYLE[name]
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.Anchored = true
 			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+			if style then
+				d.Material = style.Material
+				d.Color = style.Color
+			end
 		end
 	end
 	-- Normalize by the actual imported bounding box: make the piece's longest
-	-- side equal its real-world longest side (meters) x StudsPerMeter. Robust to
-	-- whatever unit scale / axis orientation Roblox used on import.
+	-- side equal its real-world longest side (meters) x StudsPerMeter.
 	local ext = model:GetExtentsSize()
 	local importedMax = math.max(ext.X, ext.Y, ext.Z)
 	local realMax = math.max(def.sizeMeters.X, def.sizeMeters.Y, def.sizeMeters.Z)
@@ -71,44 +120,140 @@ local function template(name: string): Model?
 	return model
 end
 
-local function placeClone(name: string, parent: Instance, cframe: CFrame): Model?
+local function placeClone(name: string, parent: Instance, cframe: CFrame, color: Color3?): Model?
 	local t = template(name)
 	if not t then
 		return nil
 	end
 	local clone = t:Clone()
+	if color then
+		for _, d in clone:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.Color = color
+			end
+		end
+	end
 	clone:PivotTo(cframe)
 	clone.Parent = parent
 	return clone
 end
 
--- Calibration set: a floor patch + a labelled row of every structural piece.
-function CryoFoundryShell.calibrate(map: Model)
+-- Lays a rows x cols grid of flat pieces (FloorSolid/FloorGrate/CeilingPanel)
+-- centered on (cx, cz) with the piece TOP flush at topY, so feet meet the
+-- cosmetic surface exactly where the collision surface is.
+local function layGrid(name: string, parent: Instance, cx: number, cz: number, topY: number, cols: number, rows: number)
+	local def = Kit.Pieces[name]
+	if not def then
+		return
+	end
+	local thickness = math.min(def.sizeMeters.X, def.sizeMeters.Y, def.sizeMeters.Z) * SPM
+	local baseY = topY - thickness
+	local x0 = cx - (cols - 1) * TILE / 2
+	local z0 = cz - (rows - 1) * TILE / 2
+	for i = 0, cols - 1 do
+		for j = 0, rows - 1 do
+			local color = if name == "FloorSolid" and (i + j) % 2 == 1 then FLOOR_ALT_COLOR else nil
+			placeClone(name, parent, CFrame.new(x0 + i * TILE, baseY, z0 + j * TILE), color)
+		end
+	end
+end
+
+-- One row of wall panels along an axis. The panel pivot is base-center with
+-- the face plane on the pivot; yawDegrees turns the face into the arena.
+local function layWallRow(
+	parent: Instance,
+	fromX: number,
+	fromZ: number,
+	toX: number,
+	toZ: number,
+	baseY: number,
+	yawDegrees: number,
+	rows: number
+)
+	local from = Vector3.new(fromX, 0, fromZ)
+	local to = Vector3.new(toX, 0, toZ)
+	local span = (to - from).Magnitude
+	local count = math.floor(span / TILE + 0.5)
+	local dir = (to - from).Unit
+	local yaw = CFrame.Angles(0, math.rad(yawDegrees), 0)
+	for row = 0, rows - 1 do
+		for i = 0, count - 1 do
+			local pos = from + dir * (TILE / 2 + i * TILE)
+			placeClone("WallPanel", parent, CFrame.new(pos.X, baseY + row * 3 * SPM, pos.Z) * yaw)
+		end
+	end
+end
+
+local function restyleGraybox(map: Model)
+	for _, child in map:GetChildren() do
+		if child:IsA("BasePart") then
+			local style = GRAYBOX_STYLE[child.Name]
+			if style then
+				child.Material = style.Material
+				if style.Color then
+					child.Color = style.Color
+				end
+			end
+		end
+	end
+end
+
+-- Skins the built graybox with the structural kit + graybox restyle.
+function CryoFoundryShell.clad(map: Model)
 	local shell = Instance.new("Folder")
-	shell.Name = "KitCalibration"
+	shell.Name = "Shell"
 	shell.Parent = map
 
-	-- Floor patch (6x6 tiles) offset to the North-East quadrant so it sits
-	-- beside the graybox without hiding the center. Judge tile scale + seams.
-	local tile = 2 * SPM
-	local originX, originZ = 12, 12
-	for i = 0, 5 do
-		for j = 0, 5 do
-			placeClone("FloorSolid", shell, CFrame.new(originX + i * tile, 0.2, originZ + j * tile))
+	restyleGraybox(map)
+
+	-- Ground floor: 17x17 module grid flush with the graybox floor top (y=0),
+	-- skipping the tiles that would land inside the raised center ring.
+	local half = 8 -- tiles each side of center
+	for i = -half, half do
+		for j = -half, half do
+			local cx = i * TILE
+			local cz = j * TILE
+			if math.max(math.abs(cx), math.abs(cz)) + TILE / 2 > 15 then
+				local def = Kit.Pieces.FloorSolid
+				local thickness = def.sizeMeters.Z * SPM
+				local color = if (i + j) % 2 == 1 then FLOOR_ALT_COLOR else nil
+				placeClone("FloorSolid", shell, CFrame.new(cx, -thickness, cz), color)
+			end
 		end
 	end
 
-	-- One of every piece in a row along -Z, spaced 8 studs, for scale/axis read.
-	local row = {
-		"WallPanel",
-		"WallHalf",
-		"Doorway",
-		"Pillar",
-		"FloorGrate",
-		"CeilingPanel",
-	}
-	for index, name in row do
-		placeClone(name, shell, CFrame.new(-30 + (index - 1) * 9, 0, 28))
+	-- Overtime ring deck: grates flush with the ring top (y=1).
+	layGrid("FloorGrate", shell, 0, 0, 1, 4, 4)
+
+	-- Perimeter walls: three rows of panels (0..32 studs) on each interior
+	-- face; the graybox above is restyled dark so it reads as upper shadow.
+	local inner = 64 - 1 - 0.1
+	layWallRow(shell, -60, -inner, 60, -inner, 0, 0, 3) -- North (faces +Z)
+	layWallRow(shell, -60, inner, 60, inner, 0, 180, 3) -- South (faces -Z)
+	layWallRow(shell, -inner, -60, -inner, 60, 0, 90, 3) -- West (faces +X)
+	layWallRow(shell, inner, -60, inner, 60, 0, 270, 3) -- East (faces -X)
+
+	-- Spawn back walls: one row facing the arena.
+	layWallRow(shell, -25, -61, 25, -61, 16, 0, 1)
+	layWallRow(shell, -25, 61, 25, 61, 16, 180, 1)
+
+	-- Corner + wall-center pillars for vertical rhythm.
+	for _, x in { -60, 0, 60 } do
+		for _, z in { -60, 60 } do
+			placeClone("Pillar", shell, CFrame.new(x, 0, z))
+		end
+	end
+	for _, x in { -60, 60 } do
+		placeClone("Pillar", shell, CFrame.new(x, 0, 0))
+	end
+
+	-- Elevated decks: spawn platforms (top 17), mid platforms (top 9), side
+	-- ledges (top 9) get solid tiles; bridges (top 8.75) get ceiling panels.
+	for _, sign in { -1, 1 } do
+		layGrid("FloorSolid", shell, 0, sign * 54, 17, 6, 2)
+		layGrid("FloorSolid", shell, 0, sign * 38, 9, 5, 2)
+		layGrid("FloorSolid", shell, sign * 52, 0, 9, 2, 4)
+		layGrid("CeilingPanel", shell, sign * 30, 0, 8.75, 3, 1)
 	end
 end
 
