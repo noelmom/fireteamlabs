@@ -1,6 +1,6 @@
 # Fireteam Labs — Handoff
 
-_Last updated: 2026-07-17_
+_Last updated: 2026-07-18_
 
 This is a running snapshot for whoever (person or agent) picks up the project next. `MASTERPLAN.md` is the design source of truth; this doc is the "where things actually stand" companion.
 
@@ -12,7 +12,7 @@ Current focus is **Milestone 0 / the vertical slice**: one map (Cryo Foundry), c
 
 ## Current state (branch `develop`)
 
-Combat sandbox is playable: you spawn onto Cryo Foundry in first person and can move, shoot, and eliminate other players. **There is no match/round system yet** — no start gate, no score, no win condition. Players just spawn and fight; eliminated players respawn on Roblox's default timer.
+The vertical slice is playable end-to-end: with 2+ players a 1v1/3v3 match auto-starts — scored rounds (ALPHA/BRAVO scoreboard), round timer, pre-round class select (locks when the round begins), overtime zone contest on timeout, side rotation, and free-roam respawn while waiting. Verified live in a 2-player Server & Clients session on 2026-07-18. Players spawn as their class's operator rig (Meshy-generated, Avatar-Auto-Setup-rigged R15 characters), the map is clad with the structural kit + engine PBR materials, the ice skybox and cryo atmosphere are wired, and the suspended reactor centerpiece lights the overtime pit.
 
 ### Done and merged
 - **Repo scaffold** — Rojo project, rokit toolchain (rojo/selene/stylua/lune), CI, issue/PR templates, docs, ADR 0001. (#1)
@@ -27,17 +27,11 @@ Combat sandbox is playable: you spawn onto Cryo Foundry in first person and can 
 ### Backlog (open issues)
 | # | Milestone | Item |
 |---|---|---|
-| 2 | M2 | Match and round state machine |
-| 3 | M2 | Team assignment and match start (1v1 / 3v3) |
-| 4 | M2 | Overtime capture zone |
-| 12 | M2 | Core HUD (health, shield, ammo, round state) |
-| 8 | M3 | Shotgun and Rocket Launcher |
-| 9 | M3 | Knife |
-| 10 | M3 | Class ability framework + Specter/Conduit/Bulwark abilities |
 | 25 | M1 | Fire-while-sprinting: cut sprint, level weapon, then fire |
-| 26 | M1 | Double jump on double-tap (edge-triggered) |
 
-**Recommended next milestone: M2 (round loop).** It turns the sandbox into scored first-to-7 matches. #2 is the anchor; #3, #4, #12 build on it. #25 and #26 are combat-feel polish surfaced during playtesting — do them whenever, not blocking.
+Everything else in the old backlog (#2, #3, #4, #8, #9, #10, #12, #26) shipped and closed — the round loop, teams, overtime, HUD, weapons, knife, and all three class abilities are live.
+
+**Recommended next:** the kit texture pass (bake real PBR maps for the environment kit in Blender and re-upload — the kit currently uses engine materials over untextured geometry), a graphics-tier re-tune against Voxel lighting (Roblox sunset Compatibility lighting and auto-migrated the place), and #25 whenever.
 
 ## How to work on it
 
