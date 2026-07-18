@@ -18,7 +18,11 @@ one rig drives both first-person and third-person (see `docs/FIRST_PERSON_VIEWMO
 - **Conduit** (`conduit/`) — tech / support. Built via the same pipeline; full-
   face visored helmet, chest energy-core + conduits, forearm gauntlet. See
   `conduit/README.md`.
-- **Bulwark** — heavy. Not yet built; same base + rig.
+- **Bulwark** (`bulwark/`) — heavy assault. Built; full hard-shell plating,
+  layered pauldrons, enclosed visor-slit helmet. See `bulwark/README.md`.
+
+All three operators are now built as Meshy hero meshes rigged to the shared R15
+skeleton.
 
 ## Specter (`specter/`)
 
