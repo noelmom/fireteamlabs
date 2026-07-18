@@ -14,28 +14,48 @@ one rig drives both first-person and third-person (see `docs/FIRST_PERSON_VIEWMO
 
 ## Specter (`specter/`)
 
-- `specter_gear_blockout.glb` — **BLOCKOUT** recon gear layer (plate carrier,
-  helmet + headset, shoulder/knee pads, belt), generated via codex + Blender and
-  fitted to the body with a shrinkwrap technique. `preview.png` shows it on the
-  male body.
-- **Status: blockout, not final.** The forms read as a low-profile tactical
-  operator within the silhouette, but character *gear polish* is the frontier the
-  automated pipeline oscillates on (belt/strap refinement, cleaner conforming) —
-  this is where an **artist pass** is needed. Hard-surface *world* assets
-  (weapons, environment kit) reach much higher quality via the same pipeline.
+The Specter recon operator is a **full geared hero character** generated with
+**Meshy.ai** (multi-image-to-3D) from a front/back concept sheet, then rigged to
+R15.
+
+- `specter_operator.glb` — hero mesh, **62k tris**, single skinned-ready mesh with
+  **full PBR** (albedo / metal-rough / AO / normal, 4× 2048). Real human scale
+  (~1.9 m). Helmet + ballistic goggles, low-profile plate carrier with mag/side
+  pouches, belt rig, knee pads, gloves, cargo pants, tactical boots, and the cyan
+  **team-indicator light** on the chest. This is the unrigged hero source.
+- `specter_operator_r15.fbx` — the same mesh **rigged to a Roblox R15-named
+  armature** with embedded textures, for Studio's **Avatar Importer** (Rig type:
+  R15). `specter_operator_r15.glb` is the skinned glTF equivalent.
+- `concept_front.png` / `concept_back.png` — the reference views fed to Meshy.
+  `preview_detail.png` (unlit geometry) and `preview_rigged_pose.png` (arm-raise
+  deform test) show the result.
+- **Status: production-quality mesh, first-pass rig.** The *mesh* clears the bar
+  the codex/Blender pipeline plateaued on. The *rig* uses deterministic
+  nearest-bone skinning (Blender heat-weights fail on thick fused gear), so limbs
+  follow the skeleton but high-flex joints (shoulders/hips) want a weight-paint
+  pass in Studio/Blender. Minor Meshy artefacts remain around some straps/fingers.
+- `archive/` holds the superseded codex+Blender `specter_gear_blockout.glb`.
 
 ## Next
 
-Rig the base body as an **R15-compatible skinned character** (bone names matching
-Roblox R15) so it imports via Studio's Avatar Importer and drives FP + TP +
-animation. Gear layers skin to the same rig. Conduit and Bulwark are gear-layer
-variants on the identical base.
+Import `specter/specter_operator_r15.fbx` via Studio's **Avatar Importer** (Rig
+type: R15), verify the joint mapping, and weight-paint the high-flex joints.
+Conduit and Bulwark are the same pipeline — a new concept sheet (shared
+proportions/base look, different gear/silhouette) through Meshy, rigged the same
+way — so the hitbox and rig stay identical across the three operators.
 
 ## Scripts (`scripts/`)
 
-`export_body.py` (extract + density-cap a base body), `gen_specter_gear4.py`
-(shrinkwrap gear), `combine_character.py` (preview render). Run with the bpy
-module; see `docs/TECHNICAL_ART_PIPELINE.md`.
+- `meshy_gen.py` — Meshy image/multi-image-to-3D client (create → poll →
+  download GLB/FBX/OBJ). Reads `MESHY_API_KEY` from the env; never prints it.
+- `rig_meshy_r15.py` — rigs a Meshy geared operator to an R15-named armature with
+  deterministic nearest-bone skinning + boundary smoothing, keeps PBR textures,
+  verifies the pose deforms, exports textured FBX + GLB. **This is the current
+  character rigging path.**
+- `export_body.py` (extract + density-cap a CC0 base body), `rig_r15.py`
+  (auto-weight rig for a bare base body), `combine_character.py` (preview render).
+
+Run with the bpy module; see `docs/TECHNICAL_ART_PIPELINE.md`.
 
 ## Rigging (R15)
 
