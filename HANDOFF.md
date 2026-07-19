@@ -24,14 +24,59 @@ The vertical slice is playable end-to-end: with 2+ players a 1v1/3v3 match auto-
 - **#20** Procedural first-person viewmodel — poses, recoil, muzzle flash, sway.
 - **#22 / #23** Placeholder combat audio + auto-reload on empty.
 
+### In flight — graphics sprint (commit `672f816`, PARTIALLY VERIFIED)
+
+Pushed to `develop` so it isn't lost, but **it has not had a clean eyes-on
+playtest**. It builds, lints, and passes tests; the visual result needs a human
+(or an agent with a working Studio MCP) to confirm and tune. Read this before
+building on top of it.
+
+| Piece | State |
+|---|---|
+| `SentinelRifle.rbxm` — AI-generated textured rifle mesh | **Verified** in Studio: real geometry, sight/foregrip/suppressor, cloud-hosted color texture |
+| Viewmodel renders the rifle mesh in first person | **Verified** in play — looks dramatically better than the old block build |
+| Operator hands on the weapon | **Not working yet.** Hand meshes attach but posing is wrong; captures show a dark blob at the lower-right instead of gloves on the grip. The rotations in `attachHands` are a first guess and need real tuning. |
+| Viewmodel framing | **Too large / too low-right.** An untested tuning pass (Scale 0.72→0.6, offset shifted left/down, hands re-angled) was written but the shell command failed before applying — those numbers are a starting point, not truth |
+| 4 PBR material variant sets (`IceworldMaterials`) | Generated and **verified in isolation** (preview wall in Studio looked genuinely good — real stone/metal/concrete detail). **Not confirmed applied** in the runtime map |
+| Terrain mountains + snow apron | Snow ground **confirmed rendering** in play captures. Mountain ring not visually confirmed. Apron was rewritten into four bands so it can't z-fight the arena floor — that fix is **unverified** |
+| Banners, warm accent lights, Bloom/SunRays | Warm orange glow **visible** in captures; banners not confirmed |
+
+**Honest assessment:** the rifle is a real jump. The rest is plumbed but unproven,
+and the overall look is still short of the FY_ICEWORLD reference in
+`earlyartwork/ui-concepts/`. The single biggest remaining lever is still baking
+real PBR textures for the environment kit — the kit geometry is untextured, so
+walls read as flat regardless of material variants.
+
+**Next actions, in order:** (1) fix the hand posing and viewmodel framing against
+live captures, (2) confirm material variants actually apply to shell pieces at
+runtime, (3) verify the mountain ring and banners render, (4) kit texture bake.
+
 ### Backlog (open issues)
 | # | Milestone | Item |
 |---|---|---|
+| 57 | — | HUD v2 remainder: radar, in-world objective markers, class portraits, weapon silhouettes, loadout strip, F-vs-X ability keybind decision |
 | 25 | M1 | Fire-while-sprinting: cut sprint, level weapon, then fire |
 
 Everything else in the old backlog (#2, #3, #4, #8, #9, #10, #12, #26) shipped and closed — the round loop, teams, overtime, HUD, weapons, knife, and all three class abilities are live.
 
-**Recommended next:** the kit texture pass (bake real PBR maps for the environment kit in Blender and re-upload — the kit currently uses engine materials over untextured geometry), a graphics-tier re-tune against Voxel lighting (Roblox sunset Compatibility lighting and auto-migrated the place), and #25 whenever.
+### Studio MCP — known failure mode
+
+The MCP bridge (Studio's "Enable Studio as MCP server") is how an agent drives
+playtests. It **wedges if you churn Studio processes**: killing/reopening places
+repeatedly leaves the WS host orphaned and the plugin never re-attaches, and it
+can silently flip the toggle off. Recovery that works:
+
+1. Quit **all** Studio processes (`pkill -9 -x RobloxStudio`).
+2. Confirm no stale host: `lsof -nP -iTCP:13469 -sTCP:LISTEN`.
+3. Open **one** place, wait for it to fully load.
+4. Check the toggle: Assistant panel → `⋯` → Manage MCP Servers → "Enable Studio
+   as MCP server" (should say "1 client connected").
+5. In Claude Code, `/mcp` → reconnect.
+
+Keep **one** place open at a time; every open document is its own process, and
+extra ones fight over the bridge. When MCP is down, the fallback is Studio's
+command bar driven by synthetic keystrokes plus `screencapture` — workable but
+slow, and clicking the viewport fires the weapon.
 
 ## How to work on it
 
