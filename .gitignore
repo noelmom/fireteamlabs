@@ -2,8 +2,9 @@
 *.rbxl
 *.rbxlx
 *.rbxm
-# Operator rigs are source assets, not build artifacts
+# Operator rigs and weapon models are source assets, not build artifacts
 !src/ReplicatedStorage/Characters/*.rbxm
+!src/ReplicatedStorage/Weapons/*.rbxm
 *.rbxmx
 build/
 

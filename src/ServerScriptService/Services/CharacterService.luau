@@ -26,6 +26,39 @@ local function rigFolder(): Folder?
 	return ReplicatedStorage:FindFirstChild("Characters") :: Folder?
 end
 
+-- Welds the world-model rifle into the rig's right hand so other players see
+-- operators carrying their weapon (visual pass #57). The engine hides it for
+-- the local player in first person along with the rest of the character.
+local function attachWorldWeapon(rig: Model)
+	local weaponsFolder = ReplicatedStorage:FindFirstChild("Weapons")
+	local template = weaponsFolder and weaponsFolder:FindFirstChild("SentinelRifle")
+	local hand = rig:FindFirstChild("RightHand")
+	if not template or not template:IsA("Model") or not hand or not hand:IsA("BasePart") then
+		return
+	end
+	local weapon = template:Clone()
+	weapon.Name = "WorldWeapon"
+	weapon:ScaleTo(weapon:GetScale() * 0.9)
+	local grip = weapon.PrimaryPart or weapon:FindFirstChildWhichIsA("BasePart", true)
+	if not grip then
+		return
+	end
+	for _, d in weapon:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = false
+			d.CanCollide = false
+			d.Massless = true
+		end
+	end
+	-- Two-hand carry across the chest, muzzle forward-down.
+	weapon:PivotTo(hand.CFrame * CFrame.new(0.05, -0.25, -0.6) * CFrame.Angles(math.rad(-8), math.rad(-6), 0))
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = hand
+	weld.Part1 = grip
+	weld.Parent = grip
+	weapon.Parent = rig
+end
+
 local function applyOperator(player: Player, character: Model)
 	if character:GetAttribute(OPERATOR_ATTRIBUTE) then
 		return
@@ -60,6 +93,7 @@ local function applyOperator(player: Player, character: Model)
 	if rootPart then
 		rootPart.Anchored = false
 	end
+	attachWorldWeapon(rig)
 
 	local targetCFrame = oldRoot.CFrame
 	player.Character = rig

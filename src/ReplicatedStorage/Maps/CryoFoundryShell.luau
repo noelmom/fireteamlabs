@@ -14,6 +14,7 @@
 local InsertService = game:GetService("InsertService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local IceworldMaterials = require(ReplicatedStorage.Maps.IceworldMaterials)
 local Kit = require(ReplicatedStorage.Maps.CryoFoundryKit)
 
 local CryoFoundryShell = {}
@@ -27,37 +28,102 @@ local TILE = 2 * SPM -- 2 m module = 7.14 studs
 -- read at a glance where single-color concrete looks like one smooth slab.
 local FLOOR_ALT_COLOR = Color3.fromRGB(139, 150, 164)
 
-local PIECE_STYLE: { [string]: { Material: Enum.Material, Color: Color3 } } = {
-	FloorSolid = { Material = Enum.Material.Concrete, Color = Color3.fromRGB(174, 184, 195) },
-	FloorGrate = { Material = Enum.Material.DiamondPlate, Color = Color3.fromRGB(96, 106, 120) },
-	WallPanel = { Material = Enum.Material.Metal, Color = Color3.fromRGB(126, 138, 152) },
-	WallHalf = { Material = Enum.Material.Metal, Color = Color3.fromRGB(108, 120, 134) },
-	Doorway = { Material = Enum.Material.Metal, Color = Color3.fromRGB(84, 94, 108) },
-	Pillar = { Material = Enum.Material.Metal, Color = Color3.fromRGB(92, 102, 116) },
-	CeilingPanel = { Material = Enum.Material.Metal, Color = Color3.fromRGB(118, 128, 142) },
+type Style = { Material: Enum.Material, Color: Color3, Variant: string? }
+local PIECE_STYLE: { [string]: Style } = {
+	FloorSolid = {
+		Material = Enum.Material.Concrete,
+		Color = Color3.fromRGB(190, 198, 207),
+		Variant = "iceworld_concrete_floor",
+	},
+	FloorGrate = {
+		Material = Enum.Material.DiamondPlate,
+		Color = Color3.fromRGB(140, 150, 162),
+		Variant = "iceworld_deck_grate",
+	},
+	WallPanel = {
+		Material = Enum.Material.Metal,
+		Color = Color3.fromRGB(168, 178, 190),
+		Variant = "iceworld_metal_panel",
+	},
+	WallHalf = {
+		Material = Enum.Material.Metal,
+		Color = Color3.fromRGB(150, 160, 172),
+		Variant = "iceworld_metal_panel",
+	},
+	Doorway = {
+		Material = Enum.Material.Metal,
+		Color = Color3.fromRGB(130, 140, 152),
+		Variant = "iceworld_metal_panel",
+	},
+	Pillar = { Material = Enum.Material.Metal, Color = Color3.fromRGB(140, 148, 160), Variant = "iceworld_metal_panel" },
+	CeilingPanel = {
+		Material = Enum.Material.Metal,
+		Color = Color3.fromRGB(160, 168, 180),
+		Variant = "iceworld_metal_panel",
+	},
 }
 
 -- Restyle for graybox parts that stay visible (by part Name). Color nil keeps
 -- the blockout's color (team tints, floor shade) and only upgrades material.
-local GRAYBOX_STYLE: { [string]: { Material: Enum.Material, Color: Color3? } } = {
-	Floor = { Material = Enum.Material.Concrete, Color = Color3.fromRGB(140, 150, 162) },
-	Perimeter = { Material = Enum.Material.Metal, Color = Color3.fromRGB(66, 74, 88) },
-	CenterRing = { Material = Enum.Material.Metal, Color = Color3.fromRGB(110, 120, 134) },
-	RingLip = { Material = Enum.Material.Metal, Color = Color3.fromRGB(72, 80, 94) },
-	LaneWall = { Material = Enum.Material.Metal, Color = Color3.fromRGB(86, 96, 110) },
-	Crate = { Material = Enum.Material.DiamondPlate, Color = Color3.fromRGB(101, 112, 128) },
-	CenterSpire = { Material = Enum.Material.Slate, Color = Color3.fromRGB(90, 100, 114) },
-	Ramp = { Material = Enum.Material.Concrete, Color = Color3.fromRGB(118, 128, 140) },
-	AlphaSpawnPlatform = { Material = Enum.Material.Concrete },
-	BravoSpawnPlatform = { Material = Enum.Material.Concrete },
-	AlphaSpawnWall = { Material = Enum.Material.Metal },
-	BravoSpawnWall = { Material = Enum.Material.Metal },
-	AlphaPlatform = { Material = Enum.Material.Concrete },
-	BravoPlatform = { Material = Enum.Material.Concrete },
-	CrystalLedge = { Material = Enum.Material.Concrete },
-	GlacierLedge = { Material = Enum.Material.Concrete },
-	CrystalLedgeBridge = { Material = Enum.Material.Metal, Color = Color3.fromRGB(80, 90, 104) },
-	GlacierLedgeBridge = { Material = Enum.Material.Metal, Color = Color3.fromRGB(80, 90, 104) },
+local GRAYBOX_STYLE: { [string]: { Material: Enum.Material, Color: Color3?, Variant: string? } } = {
+	Floor = {
+		Material = Enum.Material.Concrete,
+		Color = Color3.fromRGB(170, 180, 192),
+		Variant = "iceworld_concrete_floor",
+	},
+	Perimeter = {
+		Material = Enum.Material.Slate,
+		Color = Color3.fromRGB(150, 160, 175),
+		Variant = "iceworld_fortress_stone",
+	},
+	CenterRing = {
+		Material = Enum.Material.Metal,
+		Color = Color3.fromRGB(140, 150, 164),
+		Variant = "iceworld_metal_panel",
+	},
+	RingLip = {
+		Material = Enum.Material.Metal,
+		Color = Color3.fromRGB(110, 120, 134),
+		Variant = "iceworld_metal_panel",
+	},
+	LaneWall = {
+		Material = Enum.Material.Slate,
+		Color = Color3.fromRGB(140, 150, 165),
+		Variant = "iceworld_fortress_stone",
+	},
+	Crate = {
+		Material = Enum.Material.DiamondPlate,
+		Color = Color3.fromRGB(130, 142, 158),
+		Variant = "iceworld_deck_grate",
+	},
+	CenterSpire = {
+		Material = Enum.Material.Slate,
+		Color = Color3.fromRGB(135, 145, 160),
+		Variant = "iceworld_fortress_stone",
+	},
+	Ramp = {
+		Material = Enum.Material.Concrete,
+		Color = Color3.fromRGB(150, 160, 172),
+		Variant = "iceworld_concrete_floor",
+	},
+	AlphaSpawnPlatform = { Material = Enum.Material.Concrete, Variant = "iceworld_concrete_floor" },
+	BravoSpawnPlatform = { Material = Enum.Material.Concrete, Variant = "iceworld_concrete_floor" },
+	AlphaSpawnWall = { Material = Enum.Material.Slate, Variant = "iceworld_fortress_stone" },
+	BravoSpawnWall = { Material = Enum.Material.Slate, Variant = "iceworld_fortress_stone" },
+	AlphaPlatform = { Material = Enum.Material.Concrete, Variant = "iceworld_concrete_floor" },
+	BravoPlatform = { Material = Enum.Material.Concrete, Variant = "iceworld_concrete_floor" },
+	CrystalLedge = { Material = Enum.Material.Concrete, Variant = "iceworld_concrete_floor" },
+	GlacierLedge = { Material = Enum.Material.Concrete, Variant = "iceworld_concrete_floor" },
+	CrystalLedgeBridge = {
+		Material = Enum.Material.Metal,
+		Color = Color3.fromRGB(120, 130, 144),
+		Variant = "iceworld_metal_panel",
+	},
+	GlacierLedgeBridge = {
+		Material = Enum.Material.Metal,
+		Color = Color3.fromRGB(120, 130, 144),
+		Variant = "iceworld_metal_panel",
+	},
 }
 
 -- Load a kit piece once, scale meters->studs, style, disable collision, cache
@@ -104,6 +170,9 @@ local function template(name: string): Model?
 			if style then
 				d.Material = style.Material
 				d.Color = style.Color
+				if style.Variant then
+					d.MaterialVariant = style.Variant
+				end
 			end
 		end
 	end
@@ -193,6 +262,9 @@ local function restyleGraybox(map: Model)
 				if style.Color then
 					child.Color = style.Color
 				end
+				if style.Variant then
+					child.MaterialVariant = style.Variant
+				end
 			end
 		end
 	end
@@ -200,6 +272,8 @@ end
 
 -- Skins the built graybox with the structural kit + graybox restyle.
 function CryoFoundryShell.clad(map: Model)
+	IceworldMaterials.ensure()
+
 	local shell = Instance.new("Folder")
 	shell.Name = "Shell"
 	shell.Parent = map

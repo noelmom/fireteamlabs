@@ -143,16 +143,137 @@ local function applyAtmosphere()
 		grade.Name = "CryoGrade"
 		grade.Parent = Lighting
 	end
-	grade.TintColor = Color3.fromRGB(206, 224, 240)
-	grade.Saturation = -0.08
-	grade.Contrast = 0.06
-	grade.Brightness = 0
+	grade.TintColor = Color3.fromRGB(210, 226, 240)
+	grade.Saturation = -0.05
+	grade.Contrast = 0.1
+	grade.Brightness = 0.01
+
+	-- Post effects for the AAA read (visual pass #57): restrained bloom on the
+	-- neon/emissive accents and soft sun rays through the cold haze.
+	if not Lighting:FindFirstChild("CryoBloom") then
+		local bloom = Instance.new("BloomEffect")
+		bloom.Name = "CryoBloom"
+		bloom.Intensity = 0.4
+		bloom.Size = 32
+		bloom.Threshold = 1.1
+		bloom.Parent = Lighting
+	end
+	if not Lighting:FindFirstChild("CryoSunRays") then
+		local rays = Instance.new("SunRaysEffect")
+		rays.Name = "CryoSunRays"
+		rays.Intensity = 0.06
+		rays.Spread = 0.6
+		rays.Parent = Lighting
+	end
+	Lighting.EnvironmentDiffuseScale = 0.5
+	Lighting.EnvironmentSpecularScale = 0.6
+	Lighting.ShadowSoftness = 0.25
+end
+
+-- Snowy mountain ring + snowfield outside the arena walls, so the skybox
+-- horizon meets real geometry (FY_ICEWORLD concept). Deterministic layout.
+local function buildTerrain()
+	local terrain = workspace.Terrain
+	local rng = Random.new(20260718)
+
+	-- Snowfield apron in four bands AROUND the arena footprint. A single block
+	-- over the whole area would sit coplanar with the arena floor (top y=0) and
+	-- z-fight through it, so the interior |x|,|z| <= HALF stays clear.
+	local HALF = 64
+	local REACH = 420
+	local band = REACH - HALF
+	local mid = HALF + band / 2
+	local span = REACH * 2
+	terrain:FillBlock(CFrame.new(0, -6, -mid), Vector3.new(span, 12, band), Enum.Material.Snow)
+	terrain:FillBlock(CFrame.new(0, -6, mid), Vector3.new(span, 12, band), Enum.Material.Snow)
+	terrain:FillBlock(CFrame.new(-mid, -6, 0), Vector3.new(band, 12, HALF * 2), Enum.Material.Snow)
+	terrain:FillBlock(CFrame.new(mid, -6, 0), Vector3.new(band, 12, HALF * 2), Enum.Material.Snow)
+
+	-- Mountain ring: overlapping rock cones capped with snow.
+	for index = 1, 26 do
+		local angle = (index / 26) * math.pi * 2 + rng:NextNumber(-0.08, 0.08)
+		local radius = rng:NextNumber(240, 360)
+		local x = math.cos(angle) * radius
+		local z = math.sin(angle) * radius
+		local height = rng:NextNumber(70, 200)
+		local width = rng:NextNumber(60, 130)
+		terrain:FillBall(Vector3.new(x, height * 0.25, z), width, Enum.Material.Rock)
+		terrain:FillBall(Vector3.new(x, height * 0.55, z), width * 0.7, Enum.Material.Rock)
+		terrain:FillBall(Vector3.new(x, height * 0.85, z), width * 0.45, Enum.Material.Glacier)
+		terrain:FillBall(Vector3.new(x, height, z), width * 0.3, Enum.Material.Snow)
+	end
+end
+
+-- Fabric banners on the fortress walls (concept accent): team-blue on the
+-- Alpha half, red on the Bravo half.
+local ALPHA_BANNER = Color3.fromRGB(48, 96, 200)
+local BRAVO_BANNER = Color3.fromRGB(168, 34, 34)
+
+local function buildBanners(map: Model)
+	local function banner(x: number, z: number, yawDegrees: number, color: Color3)
+		local part = Instance.new("Part")
+		part.Name = "Banner"
+		part.Size = Vector3.new(4.2, 13, 0.3)
+		part.CFrame = CFrame.new(x, 22, z)
+			* CFrame.Angles(0, math.rad(yawDegrees), 0)
+			* CFrame.Angles(math.rad(2.5), 0, 0)
+		part.Color = color
+		part.Material = Enum.Material.Fabric
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CastShadow = true
+		part.Parent = map
+	end
+	for _, x in { -40, -20, 20, 40 } do
+		banner(x, -62.4, 0, ALPHA_BANNER)
+		banner(x, 62.4, 180, BRAVO_BANNER)
+	end
+	for _, z in { -40, 40 } do
+		banner(-63.4, z, 90, if z < 0 then ALPHA_BANNER else BRAVO_BANNER)
+		banner(63.4, z, 270, if z < 0 then ALPHA_BANNER else BRAVO_BANNER)
+	end
+end
+
+-- Warm interior accents at the wall pillars to break the cyan monotone
+-- (the concept's orange glow pockets).
+local function buildWarmAccents(map: Model)
+	local function accent(x: number, z: number)
+		local part = Instance.new("Part")
+		part.Name = "WarmAccent"
+		part.Size = Vector3.new(0.6, 2.4, 0.25)
+		part.CFrame = CFrame.new(x, 7.5, z)
+		part.Color = Color3.fromRGB(255, 150, 70)
+		part.Material = Enum.Material.Neon
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.Parent = map
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(255, 160, 84)
+		light.Brightness = 1.6
+		light.Range = 22
+		light.Parent = part
+	end
+	for _, x in { -60, 60 } do
+		for _, z in { -30, 30 } do
+			accent(x + (x < 0 and 1.2 or -1.2), z)
+		end
+	end
+	for _, z in { -62, 62 } do
+		for _, x in { -52, 52 } do
+			accent(x, z + (z < 0 and 1.2 or -1.2))
+		end
+	end
 end
 
 -- Dresses the built graybox. Positions are a symmetric first pass (mirrored
 -- across X=0 / Z=0 like the arena) and are meant to be tuned in Studio.
 function CryoFoundryDressing.dress(map: Model)
 	applyAtmosphere()
+	buildTerrain()
+	buildBanners(map)
+	buildWarmAccents(map)
 
 	-- Centerpiece: reactor core suspended over the sunken center ring. Grounding
 	-- it at the origin buried the HeavyAmmoSpawn marker (and the middle of the

@@ -1,12 +1,17 @@
 --!strict
--- Procedural first-person weapon viewmodel (issue #20). Purely visual:
--- renders a blocky rifle at the camera with hip/ADS/sprint/reload poses,
--- recoil kick, muzzle flash, and rotation-lag sway. No gameplay effect.
+-- First-person weapon viewmodel (issue #20, visual pass #57). Renders the
+-- real SentinelRifle mesh (ReplicatedStorage.Weapons) with the local player's
+-- operator hands/forearms cloned from the class rig, plus hip/ADS/sprint/
+-- reload poses, recoil kick, muzzle flash, and rotation-lag sway. Weapons
+-- without a mesh fall back to the procedural blocky build. No gameplay effect.
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local MovementController = require(script.Parent.MovementController)
+local RemoteNames = require(ReplicatedStorage.Remotes.RemoteNames)
+local RemoteUtil = require(ReplicatedStorage.Shared.Utility.RemoteUtil)
 local WeaponController = require(script.Parent.WeaponController)
 
 local ViewmodelController = {
@@ -111,12 +116,82 @@ local WEAPON_BUILDS: { [string]: WeaponBuild } = {
 	},
 }
 
+-- Weapon mesh models shipped in ReplicatedStorage.Weapons; scaled for the
+-- viewmodel and positioned by Offset (grip point relative to the camera pose).
+type MeshBuild = { ModelName: string, Scale: number, Offset: CFrame, Muzzle: CFrame }
+local MESH_BUILDS: { [string]: MeshBuild } = {
+	AutoRifle = {
+		ModelName = "SentinelRifle",
+		Scale = 0.72,
+		Offset = CFrame.new(0, 0.1, 0.15) * CFrame.Angles(0, 0, 0),
+		Muzzle = CFrame.new(0, 0.18, -1.15),
+	},
+}
+
+local currentClassId = "Specter"
+
+-- Clones the operator rig's hand + forearm meshes so the player sees their
+-- own class's gloves gripping the weapon (concept: visible hands).
+local function attachHands(viewmodel: Model)
+	local charactersFolder = ReplicatedStorage:FindFirstChild("Characters")
+	local rig = charactersFolder and charactersFolder:FindFirstChild(currentClassId)
+	if not rig then
+		return
+	end
+	local function limb(sourceName: string, offset: CFrame)
+		local source = rig:FindFirstChild(sourceName)
+		if not source or not source:IsA("MeshPart") then
+			return
+		end
+		local clone = source:Clone()
+		clone.Anchored = true
+		clone.CanCollide = false
+		clone.CanQuery = false
+		clone.CanTouch = false
+		clone.Massless = true
+		clone.CastShadow = false
+		clone.Parent = viewmodel
+		partOffsets[clone] = offset
+	end
+	-- Right hand on the grip, left hand on the foregrip, forearms angling
+	-- back toward the shoulders just outside the frame.
+	limb("RightHand", CFrame.new(0.06, -0.5, 0.62) * CFrame.Angles(math.rad(-18), 0, math.rad(-8)))
+	limb("RightLowerArm", CFrame.new(0.22, -0.72, 1.05) * CFrame.Angles(math.rad(-38), math.rad(-6), math.rad(-10)))
+	limb("LeftHand", CFrame.new(-0.1, -0.42, -0.35) * CFrame.Angles(math.rad(-12), math.rad(14), math.rad(10)))
+	limb("LeftLowerArm", CFrame.new(-0.34, -0.78, 0.35) * CFrame.Angles(math.rad(-42), math.rad(18), math.rad(14)))
+end
+
 local function buildViewmodel(weaponId: string): Model
-	local build = WEAPON_BUILDS[weaponId] or WEAPON_BUILDS.AutoRifle
 	local viewmodel = Instance.new("Model")
 	viewmodel.Name = "Viewmodel"
 	partOffsets = {}
 
+	local meshBuild = MESH_BUILDS[weaponId]
+	local weaponsFolder = ReplicatedStorage:FindFirstChild("Weapons")
+	local template = meshBuild and weaponsFolder and weaponsFolder:FindFirstChild(meshBuild.ModelName)
+	if meshBuild and template then
+		local weapon = template:Clone()
+		weapon:ScaleTo(weapon:GetScale() * meshBuild.Scale)
+		for _, d in weapon:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.Anchored = true
+				d.CastShadow = false
+				partOffsets[d] = meshBuild.Offset * weapon:GetPivot():ToObjectSpace(d.CFrame)
+			end
+		end
+		weapon.Parent = viewmodel
+
+		local flash =
+			block(Vector3.new(0.26, 0.26, 0.3), meshBuild.Muzzle, Color3.fromRGB(255, 190, 90), viewmodel, true)
+		flash.Transparency = 1
+		flash.Shape = Enum.PartType.Ball
+		muzzleFlash = flash
+
+		attachHands(viewmodel)
+		return viewmodel
+	end
+
+	local build = WEAPON_BUILDS[weaponId] or WEAPON_BUILDS.AutoRifle
 	for _, spec in build.Parts do
 		block(spec.Size, spec.Offset, spec.Color, viewmodel, spec.Neon)
 	end
@@ -126,6 +201,7 @@ local function buildViewmodel(weaponId: string): Model
 	flash.Shape = Enum.PartType.Ball
 	muzzleFlash = flash
 
+	attachHands(viewmodel)
 	return viewmodel
 end
 
@@ -213,6 +289,17 @@ function ViewmodelController.Start(_self: any)
 
 	MovementController.SprintChanged:Connect(function(value: boolean)
 		sprinting = value
+	end)
+
+	-- Swap the hands when the class (and so the operator rig) changes.
+	RemoteUtil.getEvent(RemoteNames.AbilityStateChanged).OnClientEvent:Connect(function(state: { ClassId: string })
+		if state.ClassId ~= currentClassId then
+			currentClassId = state.ClassId
+			if model then
+				model:Destroy()
+			end
+			model = buildViewmodel(currentWeaponId)
+		end
 	end)
 
 	local player = Players.LocalPlayer

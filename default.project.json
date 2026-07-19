@@ -15,6 +15,9 @@
       },
       "Characters": {
         "$path": "src/ReplicatedStorage/Characters"
+      },
+      "Weapons": {
+        "$path": "src/ReplicatedStorage/Weapons"
       }
     },
     "ServerScriptService": {
