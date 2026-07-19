@@ -4,6 +4,8 @@ _Last updated: 2026-07-18_
 
 This is a running snapshot for whoever (person or agent) picks up the project next. `MASTERPLAN.md` is the design source of truth; this doc is the "where things actually stand" companion.
 
+Per-session handoffs with the detailed record (what was verified, what broke, why) live in `docs/handoffs/` — most recent: [2026-07-18 graphics sprint](docs/handoffs/2026-07-18-graphics-sprint.md).
+
 ## What this is
 
 A first-person competitive arena shooter for Roblox (Luau + Rojo): CS-style elimination rounds, small teams (1v1 / 3v3 / 5v5), three classes differing only by a charged melee ability. Every arena is a sector of the persistent world **Island X**. Battle royale is explicitly far-future, not current scope.
